@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, Modal } from '../components/ui';
 import { UpdateCycleModal } from '../components/UpdateCycleModal';
 import { workspaceService } from '../services/workspaceService';
@@ -320,6 +320,7 @@ export function CyclesPage() {
   const [ellipsisMenuOpenId, setEllipsisMenuOpenId] = useState<string | null>(null);
   const [editCycle, setEditCycle] = useState<CycleApiResponse | null>(null);
   const [deleteCycleId, setDeleteCycleId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const { toggleFavorite, isFavorite } = useCycleFavorites(workspaceSlug, projectId);
 
@@ -706,6 +707,15 @@ export function CyclesPage() {
       <div
         key={c.id}
         className="flex items-center gap-3 border-b border-(--border-subtle) last:border-b-0 px-4 py-2 hover:bg-(--bg-layer-1-hover)"
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate(path)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            navigate(path);
+          }
+        }}
       >
         <CycleProgressCircle progress={progress} />
         <div className="min-w-0 flex-1">

@@ -80,6 +80,9 @@ const BoardPage = lazy(() =>
 const CyclesPage = lazy(() =>
   import('../pages/CyclesPage').then((m) => page({ CyclesPage: m.CyclesPage })),
 );
+const CycleDetailPage = lazy(() =>
+  import('../pages/CycleDetailPage').then((m) => page({ CycleDetailPage: m.CycleDetailPage })),
+);
 const ModulesPage = lazy(() =>
   import('../pages/ModulesPage').then((m) => page({ ModulesPage: m.ModulesPage })),
 );
@@ -519,6 +522,14 @@ const router = createBrowserRouter([
                         element: (
                           <Suspense fallback={<PageFallback />}>
                             <CyclesPage />
+                          </Suspense>
+                        ),
+                      },
+                      {
+                        path: 'cycles/:cycleId',
+                        element: (
+                          <Suspense fallback={<PageFallback />}>
+                            <CycleDetailPage />
                           </Suspense>
                         ),
                       },
