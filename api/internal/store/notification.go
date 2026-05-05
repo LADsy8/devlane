@@ -96,9 +96,15 @@ func (s *NotificationStore) MarkUnread(ctx context.Context, id uuid.UUID, receiv
 		Update("read_at", nil).Error
 }
 
+// MarkAllRead marks every unread notification in the receiver's active inbox
+// as read. "Active" mirrors List/CountUnread: not archived, not still-snoozed.
+// Otherwise the user clears notifications they never saw, and snoozed rows
+// would re-emerge already-read after the snooze expires.
 func (s *NotificationStore) MarkAllRead(ctx context.Context, receiverID uuid.UUID, workspaceID *uuid.UUID) error {
 	now := time.Now()
-	q := s.db.WithContext(ctx).Model(&model.Notification{}).Where("receiver_id = ? AND read_at IS NULL", receiverID)
+	q := s.db.WithContext(ctx).Model(&model.Notification{}).
+		Where("receiver_id = ? AND read_at IS NULL AND archived_at IS NULL AND (snoozed_till IS NULL OR snoozed_till <= ?)",
+			receiverID, now)
 	if workspaceID != nil {
 		q = q.Where("workspace_id = ?", *workspaceID)
 	}
