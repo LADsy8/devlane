@@ -90,6 +90,9 @@ Contributions are welcome. Please open an issue for bugs or feature ideas, and r
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Devlaner/devlane&type=date&legend=top-left)](https://www.star-history.com/#Devlaner/devlane&type=date&legend=top-left)
 
+## GitHub Trending
+
+[![GitHub Trending](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Devlaner/devlane/main/github-trending.json)](https://github.com/trending)
 
 ## License
 
