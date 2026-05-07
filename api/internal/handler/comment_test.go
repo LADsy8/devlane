@@ -58,11 +58,9 @@ func TestComment_Reactions(t *testing.T) {
 
 	// Add reaction
 	rr2 := ts.POST(base, map[string]any{"reaction": "👍"}, w.Session)
-	require.Truef(t, rr2.Code == http.StatusCreated || rr2.Code == http.StatusOK,
-		"unexpected status %d body=%s", rr2.Code, rr2.Body.String())
+	require.Equal(t, http.StatusCreated, rr2.Code, "body=%s", rr2.Body.String())
 
 	// Remove reaction
 	rr3 := ts.DELETE(base+"%F0%9F%91%8D/", w.Session) // URL-encoded thumbs-up
-	require.Truef(t, rr3.Code == http.StatusOK || rr3.Code == http.StatusNoContent,
-		"unexpected status %d body=%s", rr3.Code, rr3.Body.String())
+	require.Equal(t, http.StatusNoContent, rr3.Code, "body=%s", rr3.Body.String())
 }

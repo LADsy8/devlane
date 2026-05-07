@@ -12,7 +12,9 @@ import (
 )
 
 // LoginAs creates a fresh session row for the given user and returns the
-// 40-char hex session key. Call ts.WithSession(key) on requests to attach it.
+// 40-char hex session key. Pass the key as the last argument to ts.GET /
+// POST / PATCH / PUT / DELETE (or ts.Do) to authenticate the request via
+// the session_id cookie.
 //
 // This bypasses bcrypt+SignIn for speed but exercises the same persistence
 // path that production auth.Service.createSession uses (via SessionStore).

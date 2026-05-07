@@ -24,9 +24,11 @@ type TestServer struct {
 // every table, and returns a fresh router. The MagicCodeSecret is fixed so
 // magic-code tests are deterministic; CORSAllowOrigin is empty so the CORS
 // middleware doesn't interfere.
+//
+// Note: gin runs in ReleaseMode here because router.New explicitly sets it
+// — calling gin.SetMode in this function would be overwritten immediately.
 func NewTestServer(t testing.TB) *TestServer {
 	t.Helper()
-	gin.SetMode(gin.TestMode)
 
 	db := PG(t)
 	TruncateAll(t, db)

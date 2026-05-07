@@ -87,10 +87,9 @@ func TestProject_Favorite_AddRemove(t *testing.T) {
 
 	// Note: favorite route has NO trailing slash (router.go line 270/271).
 	rr := ts.POST("/api/workspaces/"+w.Workspace.Slug+"/projects/"+w.Project.ID.String()+"/favorite", nil, w.Session)
-	require.Truef(t,
-		rr.Code == http.StatusOK || rr.Code == http.StatusCreated || rr.Code == http.StatusNoContent,
-		"unexpected status %d body=%s", rr.Code, rr.Body.String(),
-	)
+	require.Equal(t, http.StatusOK, rr.Code, "body=%s", rr.Body.String())
+	body := testutil.MustJSONMap(t, rr)
+	assert.Equal(t, w.Project.ID.String(), body["project_id"])
 
 	// Listed in favorites
 	rr2 := ts.GET("/api/users/me/favorite-projects/", w.Session)
@@ -98,10 +97,7 @@ func TestProject_Favorite_AddRemove(t *testing.T) {
 
 	// Remove
 	rr3 := ts.DELETE("/api/workspaces/"+w.Workspace.Slug+"/projects/"+w.Project.ID.String()+"/favorite", w.Session)
-	require.Truef(t,
-		rr3.Code == http.StatusOK || rr3.Code == http.StatusNoContent,
-		"unexpected status %d body=%s", rr3.Code, rr3.Body.String(),
-	)
+	require.Equal(t, http.StatusOK, rr3.Code, "body=%s", rr3.Body.String())
 }
 
 func TestProject_Members_List(t *testing.T) {
