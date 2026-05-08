@@ -1,0 +1,174 @@
+name: Release
+
+# Triggered by SemVer tags. Stable tags (v1.2.3) cut a final release; tags
+# carrying a -alpha.N / -beta.N / -rc.N suffix cut a GitHub *prerelease* and
+# do NOT move the `latest` / `1` / `1.2` Docker tags.
+#
+# Examples:
+#   v1.2.3            -> ghcr.io/.../devlane-{api,ui}:1.2.3, :1.2, :1, :latest
+#   v1.2.3-beta.4     -> ghcr.io/.../devlane-{api,ui}:1.2.3-beta.4 (only)
+#   v1.2.3-alpha.345  -> ghcr.io/.../devlane-{api,ui}:1.2.3-alpha.345 (only)
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # creating GitHub releases
+  packages: write   # pushing images to ghcr.io
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # -------------------------------------------------------------------------
+  # API image
+  # -------------------------------------------------------------------------
+  build-api:
+    name: Build & push API image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image name (lowercase owner)
+        id: img
+        run: |
+          owner_lc="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "name=${REGISTRY}/${owner_lc}/devlane-api" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags & labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.img.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ !contains(github.ref_name, '-') }}
+            type=semver,pattern={{major}},enable=${{ !contains(github.ref_name, '-') }}
+          flavor: |
+            latest=${{ !contains(github.ref_name, '-') }}
+
+      - name: Build & push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./api
+          file: ./api/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=devlane-api
+          cache-to: type=gha,scope=devlane-api,mode=max
+
+  # -------------------------------------------------------------------------
+  # UI image
+  # -------------------------------------------------------------------------
+  build-ui:
+    name: Build & push UI image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image name (lowercase owner)
+        id: img
+        run: |
+          owner_lc="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "name=${REGISTRY}/${owner_lc}/devlane-ui" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags & labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.img.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ !contains(github.ref_name, '-') }}
+            type=semver,pattern={{major}},enable=${{ !contains(github.ref_name, '-') }}
+          flavor: |
+            latest=${{ !contains(github.ref_name, '-') }}
+
+      - name: Build & push UI image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./ui
+          file: ./ui/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=devlane-ui
+          cache-to: type=gha,scope=devlane-ui,mode=max
+
+  # -------------------------------------------------------------------------
+  # GitHub release
+  # -------------------------------------------------------------------------
+  github-release:
+    name: Create GitHub release
+    needs: [build-api, build-ui]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - name: Detect prerelease
+        id: kind
+        run: |
+          tag='${{ github.ref_name }}'
+          if [[ "$tag" == *-* ]]; then
+            echo "prerelease=true"  >> "$GITHUB_OUTPUT"
+            echo "Tag $tag is a prerelease"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "Tag $tag is a stable release"
+          fi
+
+      - name: Resolve image names (lowercase owner)
+        id: img
+        run: |
+          owner_lc="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "api=${REGISTRY}/${owner_lc}/devlane-api" >> "$GITHUB_OUTPUT"
+          echo "ui=${REGISTRY}/${owner_lc}/devlane-ui"  >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ steps.kind.outputs.prerelease }}
+          make_latest: ${{ steps.kind.outputs.prerelease == 'false' }}
+          body: |
+            Container images:
+
+            - **API**: `${{ steps.img.outputs.api }}:${{ github.ref_name }}`
+            - **UI**: `${{ steps.img.outputs.ui }}:${{ github.ref_name }}`
+
+            Auto-generated changelog below.
