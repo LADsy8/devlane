@@ -7,7 +7,7 @@ import { UploadImageModal } from '../components/UploadImageModal';
 import { ProjectIconModal, ProjectIconDisplay } from '../components/ProjectIconModal';
 import { getImageUrl } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme, type ThemePreference } from '../contexts/ThemeContext';
 import { workspaceService } from '../services/workspaceService';
 import { ProjectNetworkSelect } from '../components/ProjectNetworkSelect';
 import { projectService } from '../services/projectService';
@@ -1667,19 +1667,127 @@ export function SettingsPage() {
                   <p className="mt-0.5 text-sm text-(--txt-secondary)">
                     Select or customize your interface color scheme.
                   </p>
-                  <div className="relative mt-2 max-w-xs">
-                    <select
-                      value={theme}
-                      onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
-                      className="w-full appearance-none rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-3 py-2 pr-8 text-sm text-(--txt-primary) focus:outline-none focus:border-(--border-strong)"
-                    >
-                      <option value="light">Light</option>
-                      <option value="dark">Dark</option>
-                      <option value="system">System</option>
-                    </select>
-                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-(--txt-icon-tertiary)">
-                      <IconChevronDown />
-                    </span>
+                  <div className="mt-3 flex flex-wrap gap-2.5">
+                    {(
+                      [
+                        {
+                          value: 'light' as ThemePreference,
+                          label: 'Light',
+                          bg: '#f4f5f7',
+                          surface: '#ffffff',
+                          brand: '#4b72c4',
+                          row1: '#1a1a2e',
+                        },
+                        {
+                          value: 'dark' as ThemePreference,
+                          label: 'Dark',
+                          bg: '#1f2227',
+                          surface: '#27292e',
+                          brand: '#5e8de8',
+                          row1: '#e8e8f2',
+                        },
+                        {
+                          value: 'pink' as ThemePreference,
+                          label: 'Pink',
+                          bg: '#fce8ef',
+                          surface: '#fff5f8',
+                          brand: '#c4336a',
+                          row1: '#2a1820',
+                        },
+                        {
+                          value: 'system' as ThemePreference,
+                          label: 'System',
+                          bg: 'linear-gradient(135deg,#1f2227 50%,#f4f5f7 50%)',
+                          surface: null,
+                          brand: null,
+                          row1: null,
+                        },
+                      ] as const
+                    ).map(({ value, label, bg, surface, brand, row1 }) => {
+                      const selected = theme === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setTheme(value)}
+                          aria-pressed={selected}
+                          className={[
+                            'relative flex flex-col items-center gap-1.5 rounded-lg border-2 p-1 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-(--brand-default)',
+                            selected
+                              ? 'border-(--brand-default) shadow-sm'
+                              : 'border-(--border-subtle) hover:border-(--border-strong-1)',
+                          ].join(' ')}
+                          style={{ width: '4.75rem' }}
+                        >
+                          {/* Mini UI preview card */}
+                          <div
+                            className="h-12 w-full overflow-hidden rounded"
+                            style={{ background: bg }}
+                          >
+                            {surface && brand && row1 ? (
+                              <div className="flex h-full flex-col gap-1 p-1.5">
+                                {/* Simulated header bar */}
+                                <div
+                                  className="h-1.5 w-3/4 rounded-full"
+                                  style={{ background: brand, opacity: 0.75 }}
+                                />
+                                {/* Simulated content rows */}
+                                <div
+                                  className="mt-0.5 flex flex-col gap-1"
+                                  style={{
+                                    background: surface,
+                                    borderRadius: 3,
+                                    padding: '3px 4px',
+                                  }}
+                                >
+                                  <div
+                                    className="h-1 w-full rounded-full"
+                                    style={{ background: row1, opacity: 0.18 }}
+                                  />
+                                  <div
+                                    className="h-1 w-4/5 rounded-full"
+                                    style={{ background: row1, opacity: 0.12 }}
+                                  />
+                                  <div
+                                    className="h-1 w-3/5 rounded-full"
+                                    style={{ background: row1, opacity: 0.1 }}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              /* System: split dark/light preview */
+                              <div className="flex h-full">
+                                <div className="flex h-full w-1/2 flex-col gap-1 p-1.5">
+                                  <div className="h-1.5 w-3/4 rounded-full bg-[#5e8de8] opacity-75" />
+                                  <div className="h-1 w-full rounded-full bg-[#e8e8f2] opacity-20" />
+                                  <div className="h-1 w-4/5 rounded-full bg-[#e8e8f2] opacity-15" />
+                                </div>
+                                <div className="flex h-full w-1/2 flex-col gap-1 p-1.5">
+                                  <div className="h-1.5 w-3/4 rounded-full bg-[#4b72c4] opacity-75" />
+                                  <div className="h-1 w-full rounded-full bg-[#1a1a2e] opacity-20" />
+                                  <div className="h-1 w-4/5 rounded-full bg-[#1a1a2e] opacity-15" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Selected checkmark badge */}
+                          {selected && (
+                            <span
+                              className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                              style={{ background: 'var(--brand-default)' }}
+                              aria-hidden
+                            >
+                              ✓
+                            </span>
+                          )}
+
+                          <span className="text-[11px] font-medium text-(--txt-secondary)">
+                            {label}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 <div>

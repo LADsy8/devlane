@@ -12,7 +12,8 @@ import {
 
 const THEME_STORAGE_KEY = 'devlane-theme';
 
-export type ThemePreference = 'light' | 'dark' | 'system';
+export type ThemePreference = 'light' | 'dark' | 'system' | 'pink';
+type EffectiveTheme = 'light' | 'dark' | 'pink';
 
 interface ThemeContextValue {
   theme: ThemePreference;
@@ -24,21 +25,24 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 function getStoredTheme(): ThemePreference {
   if (typeof window === 'undefined') return 'system';
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
+  if (stored === 'light' || stored === 'dark' || stored === 'system' || stored === 'pink')
+    return stored;
   return 'system';
 }
 
-function getEffectiveTheme(preference: ThemePreference): 'light' | 'dark' {
+function getEffectiveTheme(preference: ThemePreference): EffectiveTheme {
   if (preference === 'system') {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   return preference;
 }
 
-function applyTheme(effective: 'light' | 'dark') {
+function applyTheme(effective: EffectiveTheme) {
   const root = document.documentElement;
   if (effective === 'dark') {
     root.setAttribute('data-theme', 'dark');
+  } else if (effective === 'pink') {
+    root.setAttribute('data-theme', 'pink');
   } else {
     root.removeAttribute('data-theme');
   }
