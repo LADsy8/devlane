@@ -195,3 +195,59 @@ func (s *CycleService) RemoveCycleIssue(ctx context.Context, workspaceSlug strin
 	}
 	return s.cs.RemoveCycleIssue(ctx, cycleID, issueID)
 }
+
+// CycleProgressSnapshot holds counts by state group + the completion chart.
+type CycleProgressSnapshot struct {
+	TotalIssues     int                `json:"total_issues"`
+	CompletedIssues int                `json:"completed_issues"`
+	BacklogIssues   int                `json:"backlog_issues"`
+	StartedIssues   int                `json:"started_issues"`
+	UnstartedIssues int                `json:"unstarted_issues"`
+	CancelledIssues int                `json:"cancelled_issues"`
+	Distribution    *CycleDistribution `json:"distribution,omitempty"`
+}
+
+// CycleDistribution contains the per-day completion chart and per-assignee/label breakdowns.
+type CycleDistribution struct {
+	CompletionChart map[string]interface{} `json:"completion_chart"`
+	Assignees       []interface{}          `json:"assignees"`
+	Labels          []interface{}          `json:"labels"`
+}
+
+// GetProgress computes a TProgressSnapshot-compatible response for the cycle.
+func (s *CycleService) GetProgress(ctx context.Context, workspaceSlug string, projectID, cycleID uuid.UUID, userID uuid.UUID) (*CycleProgressSnapshot, error) {
+	cy, err := s.Get(ctx, workspaceSlug, projectID, cycleID, userID)
+	if err != nil {
+		return nil, err
+	}
+	dist, err := s.cs.CycleStateDistribution(ctx, cycleID)
+	if err != nil {
+		return nil, err
+	}
+	total := 0
+	for _, v := range dist {
+		total += v
+	}
+	chart, err := s.cs.CycleCompletionChart(ctx, cycleID, cy.StartDate, cy.EndDate)
+	if err != nil {
+		return nil, err
+	}
+	// Convert int map to interface{} map so JSON null is avoided for missing dates.
+	chartOut := make(map[string]interface{}, len(chart))
+	for k, v := range chart {
+		chartOut[k] = v
+	}
+	return &CycleProgressSnapshot{
+		TotalIssues:     total,
+		CompletedIssues: dist["completed"],
+		BacklogIssues:   dist["backlog"],
+		StartedIssues:   dist["started"],
+		UnstartedIssues: dist["unstarted"],
+		CancelledIssues: dist["cancelled"],
+		Distribution: &CycleDistribution{
+			CompletionChart: chartOut,
+			Assignees:       []interface{}{},
+			Labels:          []interface{}{},
+		},
+	}, nil
+}

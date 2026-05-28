@@ -727,3 +727,158 @@ func (s *IssueService) RemoveRelation(ctx context.Context, workspaceSlug string,
 	_ = s.is.DeleteRelation(ctx, relatedIssueID, issueID, reverseType)
 	return nil
 }
+
+// --- Issue Links ---
+
+// ListLinks returns all external links attached to the issue.
+func (s *IssueService) ListLinks(ctx context.Context, workspaceSlug string, projectID, issueID uuid.UUID, userID uuid.UUID) ([]model.IssueLink, error) {
+	if _, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID); err != nil {
+		return nil, err
+	}
+	return s.is.ListLinksForIssue(ctx, issueID)
+}
+
+// CreateLink attaches an external URL to the issue.
+func (s *IssueService) CreateLink(ctx context.Context, workspaceSlug string, projectID, issueID uuid.UUID, userID uuid.UUID, title, rawURL string) (*model.IssueLink, error) {
+	issue, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID)
+	if err != nil {
+		return nil, err
+	}
+	l := &model.IssueLink{
+		Title:       title,
+		URL:         rawURL,
+		IssueID:     issue.ID,
+		ProjectID:   issue.ProjectID,
+		WorkspaceID: issue.WorkspaceID,
+		CreatedByID: &userID,
+	}
+	if err := s.is.CreateLink(ctx, l); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+// UpdateLink edits a link's title or URL.
+func (s *IssueService) UpdateLink(ctx context.Context, workspaceSlug string, projectID, issueID, linkID uuid.UUID, userID uuid.UUID, title, rawURL string) (*model.IssueLink, error) {
+	if _, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID); err != nil {
+		return nil, err
+	}
+	l, err := s.is.GetLinkByID(ctx, linkID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrIssueNotFound
+		}
+		return nil, err
+	}
+	if l.IssueID != issueID {
+		return nil, ErrIssueNotFound
+	}
+	if title != "" {
+		l.Title = title
+	}
+	if rawURL != "" {
+		l.URL = rawURL
+	}
+	if err := s.is.UpdateLink(ctx, l); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+// DeleteLink removes a link from the issue.
+func (s *IssueService) DeleteLink(ctx context.Context, workspaceSlug string, projectID, issueID, linkID uuid.UUID, userID uuid.UUID) error {
+	if _, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID); err != nil {
+		return err
+	}
+	l, err := s.is.GetLinkByID(ctx, linkID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrIssueNotFound
+		}
+		return err
+	}
+	if l.IssueID != issueID {
+		return ErrIssueNotFound
+	}
+	return s.is.DeleteLink(ctx, linkID)
+}
+
+// --- Epics ---
+
+// ListEpics returns all epics (is_epic=true) for the project.
+func (s *IssueService) ListEpics(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID) ([]model.Issue, error) {
+	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
+		return nil, err
+	}
+	list, err := s.is.ListEpicsByProjectID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range list {
+		if ids, err := s.is.ListAssigneesForIssue(ctx, list[i].ID); err == nil {
+			list[i].AssigneeIDs = ids
+		}
+		if ids, err := s.is.ListLabelsForIssue(ctx, list[i].ID); err == nil {
+			list[i].LabelIDs = ids
+		}
+	}
+	return list, nil
+}
+
+// CreateEpic creates a new epic in the project.
+func (s *IssueService) CreateEpic(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID, name, description, priority string, stateID *uuid.UUID, assigneeIDs, labelIDs []uuid.UUID) (*model.Issue, error) {
+	epic, err := s.Create(ctx, workspaceSlug, projectID, userID, name, description, priority, stateID, assigneeIDs, labelIDs, nil, nil, nil, false)
+	if err != nil {
+		return nil, err
+	}
+	epic.IsEpic = true
+	if err := s.is.Update(ctx, epic); err != nil {
+		return nil, err
+	}
+	return epic, nil
+}
+
+// GetEpic returns a single epic, verifying it belongs to the project and is_epic=true.
+func (s *IssueService) GetEpic(ctx context.Context, workspaceSlug string, projectID, epicID uuid.UUID, userID uuid.UUID) (*model.Issue, error) {
+	epic, err := s.GetByID(ctx, workspaceSlug, projectID, epicID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !epic.IsEpic {
+		return nil, ErrIssueNotFound
+	}
+	return epic, nil
+}
+
+// ListEpicIssues returns child issues of an epic.
+func (s *IssueService) ListEpicIssues(ctx context.Context, workspaceSlug string, projectID, epicID uuid.UUID, userID uuid.UUID) ([]model.Issue, error) {
+	if _, err := s.GetEpic(ctx, workspaceSlug, projectID, epicID, userID); err != nil {
+		return nil, err
+	}
+	list, err := s.is.ListIssuesByEpicID(ctx, epicID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range list {
+		if ids, err := s.is.ListAssigneesForIssue(ctx, list[i].ID); err == nil {
+			list[i].AssigneeIDs = ids
+		}
+		if ids, err := s.is.ListLabelsForIssue(ctx, list[i].ID); err == nil {
+			list[i].LabelIDs = ids
+		}
+	}
+	return list, nil
+}
+
+// AddIssueToEpic sets the parent of an existing issue to the epic.
+func (s *IssueService) AddIssueToEpic(ctx context.Context, workspaceSlug string, projectID, epicID, issueID uuid.UUID, userID uuid.UUID) error {
+	if _, err := s.GetEpic(ctx, workspaceSlug, projectID, epicID, userID); err != nil {
+		return err
+	}
+	issue, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID)
+	if err != nil {
+		return err
+	}
+	issue.ParentID = &epicID
+	return s.is.Update(ctx, issue)
+}
