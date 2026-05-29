@@ -84,4 +84,29 @@ export const cycleService = {
     );
     return data ?? [];
   },
+
+  async getProgress(
+    workspaceSlug: string,
+    projectId: string,
+    cycleId: string,
+  ): Promise<CycleProgressResponse> {
+    const { data } = await apiClient.get<CycleProgressResponse>(
+      `/api/workspaces/${encodeURIComponent(workspaceSlug)}/projects/${encodeURIComponent(projectId)}/cycles/${encodeURIComponent(cycleId)}/progress/`,
+    );
+    return data;
+  },
 };
+
+export interface CycleProgressResponse {
+  total_issues: number;
+  completed_issues: number;
+  backlog_issues: number;
+  started_issues: number;
+  unstarted_issues: number;
+  cancelled_issues: number;
+  distribution?: {
+    completion_chart: Record<string, number | null>;
+    assignees: unknown[];
+    labels: unknown[];
+  };
+}
