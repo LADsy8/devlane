@@ -13,6 +13,7 @@ import (
 // ProjectHandler serves project and project-member/invite endpoints.
 type ProjectHandler struct {
 	Project *service.ProjectService
+	State   *service.StateService
 }
 
 func projectID(c *gin.Context) (uuid.UUID, bool) {
@@ -117,6 +118,9 @@ func (h *ProjectHandler) Create(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
 		return
+	}
+	if h.State != nil {
+		_ = h.State.EnsureDefaultStates(c.Request.Context(), slug, p.ID, user.ID)
 	}
 
 	// If additional fields were provided, immediately apply them using the same logic as Update.
