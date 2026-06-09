@@ -92,7 +92,7 @@ func (s *StateService) ensureDefaultStates(ctx context.Context, projectID, works
 			ProjectID:   projectID,
 			WorkspaceID: workspaceID,
 		}
-		if err := s.ss.CreateIgnoreNameConflict(ctx, st); err != nil {
+		if err := s.ss.RestoreOrCreateByNameAndProject(ctx, st); err != nil {
 			return err
 		}
 	}

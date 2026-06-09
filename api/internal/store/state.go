@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Devlaner/devlane/api/internal/model"
 	"github.com/google/uuid"
@@ -18,8 +19,28 @@ func (s *StateStore) Create(ctx context.Context, st *model.State) error {
 	return s.db.WithContext(ctx).Create(st).Error
 }
 
-// CreateIgnoreNameConflict inserts a state but ignores unique (name, project_id) violations.
-func (s *StateStore) CreateIgnoreNameConflict(ctx context.Context, st *model.State) error {
+// RestoreOrCreateByNameAndProject inserts a default state, restoring a soft-deleted row
+// with the same (name, project_id) when present so UNIQUE constraints do not block reseeding.
+func (s *StateStore) RestoreOrCreateByNameAndProject(ctx context.Context, st *model.State) error {
+	var existing model.State
+	err := s.db.WithContext(ctx).Unscoped().
+		Where("name = ? AND project_id = ?", st.Name, st.ProjectID).
+		First(&existing).Error
+	if err == nil {
+		if !existing.DeletedAt.Valid {
+			return nil
+		}
+		existing.Color = st.Color
+		existing.Sequence = st.Sequence
+		existing.Group = st.Group
+		existing.Default = st.Default
+		existing.WorkspaceID = st.WorkspaceID
+		existing.DeletedAt = gorm.DeletedAt{}
+		return s.db.WithContext(ctx).Unscoped().Save(&existing).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "name"}, {Name: "project_id"}},
 		DoNothing: true,

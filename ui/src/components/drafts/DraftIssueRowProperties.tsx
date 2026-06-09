@@ -496,8 +496,8 @@ export function DraftIssueRowProperties({
   const panelClass =
     'max-h-64 min-w-[180px] overflow-auto rounded-md border border-(--border-subtle) bg-(--bg-surface-1) py-1 shadow-(--shadow-raised)';
 
-  const showModules = Boolean(project?.module_view);
-  const showCycles = Boolean(project?.cycle_view);
+  const showModules = project?.module_view ?? true;
+  const showCycles = project?.cycle_view ?? true;
 
   const moduleLabel =
     moduleCount > 1

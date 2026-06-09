@@ -275,8 +275,8 @@ export function CreateWorkItemModal({
   }, [workspaceSlug]);
 
   const stateName = stateId ? (states.find((s) => s.id === stateId)?.name ?? '') : '';
-  const showModules = Boolean(selectedProject?.module_view);
-  const showCycles = Boolean(selectedProject?.cycle_view);
+  const showModules = selectedProject?.module_view ?? true;
+  const showCycles = selectedProject?.cycle_view ?? true;
   const assigneeNames =
     assigneeIds
       .map((id) => members.find((m) => m.id === id)?.name ?? id.slice(0, 8))
