@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -209,8 +210,14 @@ func (h *InstanceSettingsHandler) AddAdmin(c *gin.Context) {
 		c.JSON(http.StatusOK, existing)
 		return
 	}
+	// Default to Owner when omitted; otherwise the role must be an explicit,
+	// valid admin level — reject anything else rather than silently coercing it.
 	role := model.RoleOwner
-	if req.Role != nil && *req.Role >= model.RoleAdmin {
+	if req.Role != nil {
+		if *req.Role != model.RoleAdmin && *req.Role != model.RoleOwner {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
+			return
+		}
 		role = *req.Role
 	}
 	admin := &model.InstanceAdmin{UserID: u.ID, Role: role, IsVerified: true}
@@ -233,16 +240,11 @@ func (h *InstanceSettingsHandler) RemoveAdmin(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid admin id"})
 		return
 	}
-	count, err := h.Admins.Count(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove instance admin"})
-		return
-	}
-	if count <= 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot remove the last instance admin"})
-		return
-	}
-	if err := h.Admins.DeleteByPK(c.Request.Context(), id); err != nil {
+	if err := h.Admins.DeleteByPKIfNotLast(c.Request.Context(), id); err != nil {
+		if errors.Is(err, store.ErrLastInstanceAdmin) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot remove the last instance admin"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove instance admin"})
 		return
 	}

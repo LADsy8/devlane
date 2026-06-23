@@ -173,6 +173,18 @@ func TestInstance_Admins_ListAddRemove(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, ts.GET("/api/instance/settings/", otherSession).Code)
 }
 
+func TestInstance_Admins_AddRejectsInvalidRole(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	admin := testutil.CreateUser(t, ts.DB)
+	testutil.SeedInstanceAdmin(t, ts.DB, admin)
+	session := testutil.LoginAs(t, ts.DB, admin)
+	other := testutil.CreateUser(t, ts.DB)
+
+	// A non-admin role value (5 = guest) must be rejected, not coerced to Owner.
+	rr := ts.POST("/api/instance/admins/", map[string]any{"email": *other.Email, "role": 5}, session)
+	require.Equal(t, http.StatusBadRequest, rr.Code, "body=%s", rr.Body.String())
+}
+
 func TestInstance_Admins_NonAdminForbidden(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 	admin := testutil.CreateUser(t, ts.DB)

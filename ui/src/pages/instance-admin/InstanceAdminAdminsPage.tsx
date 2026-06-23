@@ -109,7 +109,7 @@ export function InstanceAdminAdminsPage() {
             onChange={(e) => setAddEmail(e.target.value)}
             placeholder="person@example.com"
             aria-label="New admin email"
-            className="block w-full rounded border border-(--border-subtle) bg-(--bg-surface-1) px-2.5 py-1.5 text-xs text-(--txt-primary) focus:outline-none"
+            className="block w-full rounded border border-(--border-subtle) bg-(--bg-surface-1) px-2.5 py-1.5 text-xs text-(--txt-primary) focus:border-(--border-strong) focus:outline-none"
           />
           <p className="mt-0.5 text-[11px] text-(--txt-tertiary)">
             The person must already have a Devlane account.
