@@ -22,6 +22,12 @@ import (
 )
 
 func main() {
+	// Operator CLI: `api admin grant <email>` (and future admin subcommands) runs
+	// instead of starting the server.
+	if len(os.Args) > 1 && os.Args[1] == "admin" {
+		os.Exit(runAdmin(os.Args[2:]))
+	}
+
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -50,6 +56,11 @@ func main() {
 		os.Exit(1)
 	}
 	defer sqlDB.Close()
+
+	// Self-heal: ensure the instance has at least one admin (promotes the
+	// general.admin_email user on instances created before the instance_admins
+	// table existed, so the instance-admin dashboard stays reachable).
+	bootstrapFirstAdmin(context.Background(), db, log)
 
 	// Redis
 	var rdb *redis.Client

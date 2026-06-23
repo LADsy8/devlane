@@ -57,6 +57,13 @@ func (s *InstanceAdminStore) List(ctx context.Context) ([]model.InstanceAdmin, e
 	return admins, err
 }
 
+// CountActive returns the number of active (non-deleted) instance admins.
+func (s *InstanceAdminStore) CountActive(ctx context.Context) (int64, error) {
+	var n int64
+	err := s.db.WithContext(ctx).Model(&model.InstanceAdmin{}).Count(&n).Error
+	return n, err
+}
+
 // DeleteByPKIfNotLast soft-deletes the admin with the given id, but only when
 // more than one active admin exists. The count and delete run in a single
 // transaction with the active admin rows locked FOR UPDATE, so two concurrent
