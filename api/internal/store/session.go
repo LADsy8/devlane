@@ -50,23 +50,6 @@ func (s *SessionStore) Delete(ctx context.Context, sessionKey string) error {
 	return s.db.WithContext(ctx).Where("session_key = ?", sessionKey).Delete(&model.Session{}).Error
 }
 
-// DeleteByUserID removes every session belonging to the user. Used after a
-// password reset so a stolen session cannot outlive the credential change.
-func (s *SessionStore) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
-	return s.db.WithContext(ctx).
-		Where("session_data::jsonb->>'user_id' = ?", userID.String()).
-		Delete(&model.Session{}).Error
-}
-
-// DeleteByUserIDExcept removes all of the user's sessions except keepKey. Used
-// on self-service password change so the acting session survives while any other
-// (possibly attacker-held) sessions are evicted.
-func (s *SessionStore) DeleteByUserIDExcept(ctx context.Context, userID uuid.UUID, keepKey string) error {
-	return s.db.WithContext(ctx).
-		Where("session_data::jsonb->>'user_id' = ? AND session_key <> ?", userID.String(), keepKey).
-		Delete(&model.Session{}).Error
-}
-
 func (s *SessionStore) RefreshExpire(ctx context.Context, sessionKey string) error {
 	expire := time.Now().UTC().AddDate(0, 0, sessionExpireDays)
 	return s.db.WithContext(ctx).Model(&model.Session{}).Where("session_key = ?", sessionKey).Update("expire_date", expire).Error

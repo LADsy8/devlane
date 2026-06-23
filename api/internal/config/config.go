@@ -100,23 +100,6 @@ func Load() (*Config, error) {
 		MagicCodeSecret:      getEnv("MAGIC_CODE_SECRET", ""),
 	}
 
-	// Fail closed in non-development environments: a missing MAGIC_CODE_SECRET
-	// falls back to a public compiled-in HMAC key, and a missing
-	// INSTANCE_ENCRYPTION_KEY causes instance secrets to be stored in plaintext.
-	// Both are unacceptable outside local dev.
-	if cfg.Env != "development" {
-		var missing []string
-		if cfg.MagicCodeSecret == "" {
-			missing = append(missing, "MAGIC_CODE_SECRET")
-		}
-		if os.Getenv("INSTANCE_ENCRYPTION_KEY") == "" {
-			missing = append(missing, "INSTANCE_ENCRYPTION_KEY")
-		}
-		if len(missing) > 0 {
-			return nil, fmt.Errorf("missing required production secrets %v (set ENV=development only for local dev)", missing)
-		}
-	}
-
 	return cfg, nil
 }
 

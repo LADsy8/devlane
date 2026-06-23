@@ -124,11 +124,6 @@ const InstanceAdminWorkspacePage = lazy(() =>
     page({ InstanceAdminWorkspacePage: m.InstanceAdminWorkspacePage }),
   ),
 );
-const InstanceAdminAdminsPage = lazy(() =>
-  import('../pages/instance-admin').then((m) =>
-    page({ InstanceAdminAdminsPage: m.InstanceAdminAdminsPage }),
-  ),
-);
 const InstanceAdminEmailPage = lazy(() =>
   import('../pages/instance-admin').then((m) =>
     page({ InstanceAdminEmailPage: m.InstanceAdminEmailPage }),
@@ -306,14 +301,6 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageFallback />}>
                 <InstanceAdminWorkspacePage />
-              </Suspense>
-            ),
-          },
-          {
-            path: 'admins',
-            element: (
-              <Suspense fallback={<PageFallback />}>
-                <InstanceAdminAdminsPage />
               </Suspense>
             ),
           },

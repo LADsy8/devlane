@@ -69,27 +69,12 @@ func (s *AttachmentService) ensureProjectAccess(ctx context.Context, workspaceSl
 	return nil
 }
 
-// ensureIssueAccess validates workspace membership + project-in-workspace AND
-// that the target issue actually belongs to the URL project. Without the issue
-// check, any workspace member could read/modify attachments on an issue from a
-// different project/workspace by supplying that issue's id.
-func (s *AttachmentService) ensureIssueAccess(ctx context.Context, workspaceSlug string, projectID, issueID, userID uuid.UUID) error {
-	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
-		return err
-	}
-	issue, err := s.is.GetByID(ctx, issueID)
-	if err != nil || issue == nil || issue.ProjectID != projectID {
-		return ErrAttachmentNotFound
-	}
-	return nil
-}
-
 // InitiateUpload creates the DB records and returns the presigned upload URL + attachment shape.
 func (s *AttachmentService) InitiateUpload(ctx context.Context, workspaceSlug string, projectID, issueID uuid.UUID, userID uuid.UUID, name string, size float64, contentType string) (*PresignedUploadResponse, error) {
 	if s.minio == nil {
 		return nil, errors.New("file storage is not configured")
 	}
-	if err := s.ensureIssueAccess(ctx, workspaceSlug, projectID, issueID, userID); err != nil {
+	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
 		return nil, err
 	}
 	wrk, err := s.ws.GetBySlug(ctx, workspaceSlug)
@@ -154,7 +139,7 @@ func (s *AttachmentService) InitiateUpload(ctx context.Context, workspaceSlug st
 
 // ConfirmUpload marks the file asset as uploaded (PATCH step).
 func (s *AttachmentService) ConfirmUpload(ctx context.Context, workspaceSlug string, projectID, issueID, assetID uuid.UUID, userID uuid.UUID) error {
-	if err := s.ensureIssueAccess(ctx, workspaceSlug, projectID, issueID, userID); err != nil {
+	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
 		return err
 	}
 	asset, err := s.is.GetFileAssetByID(ctx, assetID)
@@ -172,7 +157,7 @@ func (s *AttachmentService) ConfirmUpload(ctx context.Context, workspaceSlug str
 
 // ListAttachments returns uploaded attachments for an issue.
 func (s *AttachmentService) ListAttachments(ctx context.Context, workspaceSlug string, projectID, issueID uuid.UUID, userID uuid.UUID) ([]AttachmentResponse, error) {
-	if err := s.ensureIssueAccess(ctx, workspaceSlug, projectID, issueID, userID); err != nil {
+	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
 		return nil, err
 	}
 	attachments, assets, err := s.is.ListAttachmentsWithAssets(ctx, issueID)
@@ -209,7 +194,7 @@ func (s *AttachmentService) ListAttachments(ctx context.Context, workspaceSlug s
 
 // DeleteAttachment removes an attachment and its file asset.
 func (s *AttachmentService) DeleteAttachment(ctx context.Context, workspaceSlug string, projectID, issueID, assetID uuid.UUID, userID uuid.UUID) error {
-	if err := s.ensureIssueAccess(ctx, workspaceSlug, projectID, issueID, userID); err != nil {
+	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
 		return err
 	}
 	asset, err := s.is.GetFileAssetByID(ctx, assetID)

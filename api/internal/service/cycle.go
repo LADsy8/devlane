@@ -44,16 +44,11 @@ type CycleService struct {
 	cs *store.CycleStore
 	ps *store.ProjectStore
 	ws *store.WorkspaceStore
-	is *store.IssueStore // optional: validates issues added to a cycle belong to the project
 }
 
 func NewCycleService(cs *store.CycleStore, ps *store.ProjectStore, ws *store.WorkspaceStore) *CycleService {
 	return &CycleService{cs: cs, ps: ps, ws: ws}
 }
-
-// SetIssueStore enables validation that an issue added to a cycle belongs to the
-// same project.
-func (s *CycleService) SetIssueStore(is *store.IssueStore) { s.is = is }
 
 func (s *CycleService) ensureProjectAccess(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID) error {
 	wrk, err := s.ws.GetBySlug(ctx, workspaceSlug)
@@ -182,14 +177,6 @@ func (s *CycleService) AddCycleIssue(ctx context.Context, workspaceSlug string, 
 	cy, err := s.Get(ctx, workspaceSlug, projectID, cycleID, userID)
 	if err != nil {
 		return err
-	}
-	// The issue must belong to the same project — otherwise a member could attach
-	// an issue from another project/workspace into this cycle.
-	if s.is != nil {
-		issue, err := s.is.GetByID(ctx, issueID)
-		if err != nil || issue == nil || issue.ProjectID != projectID {
-			return ErrIssueNotFound
-		}
 	}
 	ci := &model.CycleIssue{
 		CycleID:     cy.ID,

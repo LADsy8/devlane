@@ -59,20 +59,6 @@ func (s *ProjectService) GetByID(ctx context.Context, workspaceSlug string, proj
 	return s.ps.GetByID(ctx, projectID)
 }
 
-// requireProjectAdmin allows the action when the caller is a workspace
-// admin/owner, or a project member with at least the Admin role. Read access
-// (workspace membership) is validated separately by GetByID.
-func (s *ProjectService) requireProjectAdmin(ctx context.Context, workspaceID, projectID, userID uuid.UUID) error {
-	if wm, err := s.ws.GetMember(ctx, workspaceID, userID); err == nil && wm != nil && wm.Role >= model.RoleAdmin {
-		return nil
-	}
-	pm, err := s.ps.GetProjectMember(ctx, projectID, userID)
-	if err != nil || pm == nil || pm.Role < model.RoleAdmin {
-		return ErrProjectForbidden
-	}
-	return nil
-}
-
 func (s *ProjectService) Create(ctx context.Context, workspaceSlug, name, identifier string, userID uuid.UUID) (*model.Project, error) {
 	wrk, err := s.ws.GetBySlug(ctx, workspaceSlug)
 	if err != nil {
@@ -100,9 +86,6 @@ func (s *ProjectService) Create(ctx context.Context, workspaceSlug, name, identi
 func (s *ProjectService) Update(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID, name, identifier, description, timezone, coverImage *string, emoji *string, iconProp *model.JSONMap, projectLeadIDSet bool, projectLeadID *uuid.UUID, defaultAssigneeIDSet bool, defaultAssigneeID *uuid.UUID, guestViewAllFeatures *bool, moduleView, cycleView, issueViewsView, pageView, intakeView, isTimeTrackingEnabled *bool) (*model.Project, error) {
 	p, err := s.GetByID(ctx, workspaceSlug, projectID, userID)
 	if err != nil {
-		return nil, err
-	}
-	if err := s.requireProjectAdmin(ctx, p.WorkspaceID, p.ID, userID); err != nil {
 		return nil, err
 	}
 	if name != nil {
@@ -166,11 +149,8 @@ func (s *ProjectService) Update(ctx context.Context, workspaceSlug string, proje
 }
 
 func (s *ProjectService) Delete(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID) error {
-	p, err := s.GetByID(ctx, workspaceSlug, projectID, userID)
+	_, err := s.GetByID(ctx, workspaceSlug, projectID, userID)
 	if err != nil {
-		return err
-	}
-	if err := s.requireProjectAdmin(ctx, p.WorkspaceID, p.ID, userID); err != nil {
 		return err
 	}
 	return s.ps.Delete(ctx, projectID)
@@ -197,16 +177,9 @@ func (s *ProjectService) GetMember(ctx context.Context, workspaceSlug string, pr
 }
 
 func (s *ProjectService) UpdateMemberRole(ctx context.Context, workspaceSlug string, projectID uuid.UUID, memberPK uuid.UUID, userID uuid.UUID, role int16) (*model.ProjectMember, error) {
-	p, err := s.GetByID(ctx, workspaceSlug, projectID, userID)
+	m, err := s.GetMember(ctx, workspaceSlug, projectID, memberPK, userID)
 	if err != nil {
 		return nil, err
-	}
-	if err := s.requireProjectAdmin(ctx, p.WorkspaceID, p.ID, userID); err != nil {
-		return nil, err
-	}
-	m, err := s.ps.GetProjectMemberByPK(ctx, memberPK)
-	if err != nil || m.ProjectID != projectID {
-		return nil, ErrMemberNotFound
 	}
 	m.Role = role
 	if err := s.ps.UpdateProjectMember(ctx, m); err != nil {
@@ -216,11 +189,8 @@ func (s *ProjectService) UpdateMemberRole(ctx context.Context, workspaceSlug str
 }
 
 func (s *ProjectService) DeleteMember(ctx context.Context, workspaceSlug string, projectID uuid.UUID, memberPK uuid.UUID, userID uuid.UUID) error {
-	p, err := s.GetByID(ctx, workspaceSlug, projectID, userID)
+	_, err := s.GetByID(ctx, workspaceSlug, projectID, userID)
 	if err != nil {
-		return err
-	}
-	if err := s.requireProjectAdmin(ctx, p.WorkspaceID, p.ID, userID); err != nil {
 		return err
 	}
 	m, err := s.ps.GetProjectMemberByPK(ctx, memberPK)
@@ -250,9 +220,6 @@ func genProjectInviteToken() string {
 func (s *ProjectService) CreateInvite(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID, email string, role int16) (*model.ProjectMemberInvite, error) {
 	p, err := s.GetByID(ctx, workspaceSlug, projectID, userID)
 	if err != nil {
-		return nil, err
-	}
-	if err := s.requireProjectAdmin(ctx, p.WorkspaceID, p.ID, userID); err != nil {
 		return nil, err
 	}
 	inv := &model.ProjectMemberInvite{
@@ -290,11 +257,8 @@ func (s *ProjectService) GetInvite(ctx context.Context, workspaceSlug string, pr
 }
 
 func (s *ProjectService) DeleteInvite(ctx context.Context, workspaceSlug string, projectID uuid.UUID, inviteID uuid.UUID, userID uuid.UUID) error {
-	inv, err := s.GetInvite(ctx, workspaceSlug, projectID, inviteID, userID)
+	_, err := s.GetInvite(ctx, workspaceSlug, projectID, inviteID, userID)
 	if err != nil {
-		return err
-	}
-	if err := s.requireProjectAdmin(ctx, inv.WorkspaceID, inv.ProjectID, userID); err != nil {
 		return err
 	}
 	return s.pinv.Delete(ctx, inviteID)

@@ -93,7 +93,8 @@ func (s *GithubSyncService) CreateSync(ctx context.Context, workspaceSlug string
 	if err != nil {
 		return nil, nil, ErrWorkspaceNotFound
 	}
-	if m, err := s.ws.GetMember(ctx, w.ID, userID); err != nil || m == nil || m.Role < model.RoleAdmin {
+	ok, _ := s.ws.IsMember(ctx, w.ID, userID)
+	if !ok {
 		return nil, nil, ErrWorkspaceForbidden
 	}
 	inWorkspace, _ := s.ps.IsInWorkspace(ctx, projectID, w.ID)
@@ -144,9 +145,6 @@ func (s *GithubSyncService) UpdateSync(ctx context.Context, workspaceSlug string
 	sync, _, err := s.GetByProject(ctx, workspaceSlug, projectID, userID)
 	if err != nil {
 		return nil, err
-	}
-	if m, err := s.ws.GetMember(ctx, sync.WorkspaceID, userID); err != nil || m == nil || m.Role < model.RoleAdmin {
-		return nil, ErrWorkspaceForbidden
 	}
 	if autoLink != nil {
 		sync.AutoLink = *autoLink
@@ -205,9 +203,6 @@ func (s *GithubSyncService) DeleteSync(ctx context.Context, workspaceSlug string
 	sync, repo, err := s.GetByProject(ctx, workspaceSlug, projectID, userID)
 	if err != nil {
 		return err
-	}
-	if m, err := s.ws.GetMember(ctx, sync.WorkspaceID, userID); err != nil || m == nil || m.Role < model.RoleAdmin {
-		return ErrWorkspaceForbidden
 	}
 	if err := s.rs.Delete(ctx, sync.ID); err != nil {
 		return err

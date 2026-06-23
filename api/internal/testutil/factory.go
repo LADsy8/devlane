@@ -120,23 +120,6 @@ func CreateUser(t testing.TB, db *gorm.DB, opts ...UserOpt) *model.User {
 	return u
 }
 
-// SeedInstanceAdmin registers user as an instance admin by inserting an
-// instance_admins row (matches what InstanceSetup does on first run). Required
-// for tests that hit the admin-gated /instance/ endpoints.
-func SeedInstanceAdmin(t testing.TB, db *gorm.DB, user *model.User) {
-	t.Helper()
-	if user == nil {
-		t.Fatal("SeedInstanceAdmin: user is nil")
-	}
-	if err := store.NewInstanceAdminStore(db).Create(context.Background(), &model.InstanceAdmin{
-		UserID:     user.ID,
-		Role:       RoleOwner,
-		IsVerified: true,
-	}); err != nil {
-		t.Fatalf("SeedInstanceAdmin: %v", err)
-	}
-}
-
 // Workspace member roles (matches int16 values used by the API).
 const (
 	RoleGuest  int16 = 5

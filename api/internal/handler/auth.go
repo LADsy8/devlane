@@ -293,7 +293,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "detail": err.Error()})
 		return
 	}
-	if err := h.Auth.ChangePassword(c.Request.Context(), user.ID, req.CurrentPassword, req.NewPassword, middleware.SessionKeyFromCookieOrBearer(c)); err != nil {
+	if err := h.Auth.ChangePassword(c.Request.Context(), user.ID, req.CurrentPassword, req.NewPassword); err != nil {
 		if errors.Is(err, auth.ErrPasswordTooWeak) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Password must contain at least 8 characters, one uppercase, one lowercase, one digit, and one special character."})
 			return
@@ -1127,7 +1127,7 @@ func (h *AuthHandler) SetPassword(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "detail": err.Error()})
 		return
 	}
-	if err := h.Auth.SetPassword(c.Request.Context(), user.ID, body.Password, middleware.SessionKeyFromCookieOrBearer(c)); err != nil {
+	if err := h.Auth.SetPassword(c.Request.Context(), user.ID, body.Password); err != nil {
 		if errors.Is(err, auth.ErrPasswordTooWeak) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Password must contain at least 8 characters, one uppercase, one lowercase, one digit, and one special character."})
 			return

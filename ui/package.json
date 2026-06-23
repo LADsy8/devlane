@@ -39,7 +39,6 @@
     "@tiptap/suggestion": "^3.22.3",
     "axios": "^1.16.0",
     "clsx": "^2.1.1",
-    "dompurify": "^3.2.7",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -61,6 +60,6 @@
     "prettier": "^3.8.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
-    "vite": "^7.3.2"
+    "vite": "^7.3.1"
   }
 }

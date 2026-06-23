@@ -17,7 +17,7 @@ func loadOAuthSettingsMap(ctx context.Context, st *store.InstanceSettingStore) m
 	if err != nil || row == nil || row.Value == nil {
 		return nil
 	}
-	return decryptSectionSecretsInternal("oauth", row.Value)
+	return decryptSectionSecrets("oauth", row.Value)
 }
 
 func jsonString(m model.JSONMap, key string) string {

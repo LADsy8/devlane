@@ -17,16 +17,11 @@ type ModuleService struct {
 	ms *store.ModuleStore
 	ps *store.ProjectStore
 	ws *store.WorkspaceStore
-	is *store.IssueStore // optional: validates issues added to a module belong to the project
 }
 
 func NewModuleService(ms *store.ModuleStore, ps *store.ProjectStore, ws *store.WorkspaceStore) *ModuleService {
 	return &ModuleService{ms: ms, ps: ps, ws: ws}
 }
-
-// SetIssueStore enables validation that an issue added to a module belongs to the
-// same project.
-func (s *ModuleService) SetIssueStore(is *store.IssueStore) { s.is = is }
 
 func (s *ModuleService) ensureProjectAccess(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID) error {
 	wrk, err := s.ws.GetBySlug(ctx, workspaceSlug)
@@ -157,13 +152,6 @@ func (s *ModuleService) AddModuleIssue(ctx context.Context, workspaceSlug string
 	mod, err := s.Get(ctx, workspaceSlug, projectID, moduleID, userID)
 	if err != nil {
 		return err
-	}
-	// The issue must belong to the same project.
-	if s.is != nil {
-		issue, err := s.is.GetByID(ctx, issueID)
-		if err != nil || issue == nil || issue.ProjectID != projectID {
-			return ErrIssueNotFound
-		}
 	}
 	mi := &model.ModuleIssue{
 		ModuleID:    mod.ID,

@@ -247,10 +247,7 @@ func (s *Service) UpdateProfile(ctx context.Context, u *model.User) error {
 	return s.userStore.Update(ctx, u)
 }
 
-// ChangePassword updates the user's password after verifying the current one.
-// All of the user's other sessions are evicted (keeping keepSessionKey, the
-// caller's current session) so a stolen session cannot survive the change.
-func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword, keepSessionKey string) error {
+func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
 	if err := ValidatePasswordStrength(newPassword); err != nil {
 		return err
 	}
@@ -272,13 +269,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, currentP
 		return err
 	}
 	u.Password = string(hash)
-	if err := s.userStore.Update(ctx, u); err != nil {
-		return err
-	}
-	if s.sessionStore != nil {
-		_ = s.sessionStore.DeleteByUserIDExcept(ctx, userID, keepSessionKey)
-	}
-	return nil
+	return s.userStore.Update(ctx, u)
 }
 
 // EmailCheck determines whether an email is already registered.
@@ -351,19 +342,13 @@ func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) 
 		return err
 	}
 	_ = s.resetTokenStore.InvalidateForUser(ctx, rt.UserID)
-	// Evict every existing session for the user: a password reset is the canonical
-	// post-compromise recovery step and must not leave an attacker's session alive.
-	if s.sessionStore != nil {
-		_ = s.sessionStore.DeleteByUserID(ctx, rt.UserID)
-	}
 	return nil
 }
 
 var ErrPasswordAlreadySet = errors.New("password is already set")
 
 // SetPassword lets a user who signed up via OAuth/magic set their first password.
-// Other sessions are evicted (keeping keepSessionKey, the caller's session).
-func (s *Service) SetPassword(ctx context.Context, userID uuid.UUID, newPassword, keepSessionKey string) error {
+func (s *Service) SetPassword(ctx context.Context, userID uuid.UUID, newPassword string) error {
 	if err := ValidatePasswordStrength(newPassword); err != nil {
 		return err
 	}
@@ -383,13 +368,7 @@ func (s *Service) SetPassword(ctx context.Context, userID uuid.UUID, newPassword
 	}
 	u.Password = string(hash)
 	u.IsPasswordAutoset = false
-	if err := s.userStore.Update(ctx, u); err != nil {
-		return err
-	}
-	if s.sessionStore != nil {
-		_ = s.sessionStore.DeleteByUserIDExcept(ctx, userID, keepSessionKey)
-	}
-	return nil
+	return s.userStore.Update(ctx, u)
 }
 
 // OAuthLogin finds or creates a user from OAuth provider data and creates a session.

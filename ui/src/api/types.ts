@@ -394,18 +394,6 @@ export type InstanceSettingsResponse = Record<string, Record<string, unknown>>;
 /** Section value for PATCH /api/instance/settings/:key */
 export type InstanceSettingSectionValue = Record<string, unknown>;
 
-/** Instance admin row (from GET /api/instance/admins/) */
-export interface InstanceAdminApiResponse {
-  id: string;
-  user_id: string;
-  role: number;
-  is_verified: boolean;
-  created_at: string;
-  updated_at: string;
-  user_email?: string | null;
-  user_display_name?: string;
-}
-
 /** General section shape */
 export interface InstanceGeneralSection {
   instance_name?: string;

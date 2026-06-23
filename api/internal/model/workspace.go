@@ -26,15 +26,6 @@ type Workspace struct {
 
 func (Workspace) TableName() string { return "workspaces" }
 
-// Workspace/project member role levels (int16, ascending privilege).
-// These mirror the values used throughout the API and tests.
-const (
-	RoleGuest  int16 = 5
-	RoleMember int16 = 10
-	RoleAdmin  int16 = 15
-	RoleOwner  int16 = 20
-)
-
 func (w *Workspace) BeforeCreate(tx *gorm.DB) error {
 	if w.ID == uuid.Nil {
 		w.ID = uuid.New()

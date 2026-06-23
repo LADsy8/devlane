@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -13,11 +12,9 @@ import (
 
 	"github.com/Devlaner/devlane/api/internal/auth"
 	"github.com/Devlaner/devlane/api/internal/crypto"
-	"github.com/Devlaner/devlane/api/internal/middleware"
 	"github.com/Devlaner/devlane/api/internal/model"
 	"github.com/Devlaner/devlane/api/internal/store"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // Allowed instance setting section keys (must match migration seed).
@@ -31,15 +28,11 @@ type InstanceHandler struct {
 	Auth     *auth.Service
 	Users    *store.UserStore
 	Settings *store.InstanceSettingStore
-	Admins   *store.InstanceAdminStore
 }
 
-// InstanceSettingsHandler serves instance settings (GET/PATCH) and instance-admin
-// management; all endpoints require the caller to be an instance admin.
+// InstanceSettingsHandler serves instance settings (GET/PATCH); requires auth.
 type InstanceSettingsHandler struct {
 	Settings *store.InstanceSettingStore
-	Admins   *store.InstanceAdminStore
-	Users    *store.UserStore
 	// OnSectionUpdated, if set, is invoked after a successful update with the
 	// section key. Used for hot-reload of integration clients (e.g. github_app)
 	// so the new credentials take effect without an API restart.
@@ -107,15 +100,6 @@ func (h *InstanceHandler) InstanceSetup(c *gin.Context) {
 		return
 	}
 
-	// Register the first user as an instance admin (mirrors Plane's setup flow).
-	if h.Admins != nil {
-		_ = h.Admins.Create(c.Request.Context(), &model.InstanceAdmin{
-			UserID:     user.ID,
-			Role:       model.RoleOwner,
-			IsVerified: true,
-		})
-	}
-
 	// Seed general instance settings: generated instance_id, admin email from setup, instance name from company name
 	if h.Settings != nil {
 		instanceID := generateInstanceID()
@@ -144,121 +128,9 @@ func generateInstanceID() string {
 	return hex.EncodeToString(b)
 }
 
-// isInstanceAdmin reports whether the authenticated user is an instance admin,
-// looked up in the instance_admins table by user id + role (mirrors Plane's
-// InstanceAdminPermission). Fails closed on any error.
-func (h *InstanceSettingsHandler) isInstanceAdmin(c *gin.Context) bool {
-	user := middleware.GetUser(c)
-	if user == nil || h.Admins == nil {
-		return false
-	}
-	ok, err := h.Admins.IsAdmin(c.Request.Context(), user.ID)
-	return err == nil && ok
-}
-
-// requireInstanceAdmin writes a 403 and returns false if the caller is not an
-// instance administrator.
-func (h *InstanceSettingsHandler) requireInstanceAdmin(c *gin.Context) bool {
-	if !h.isInstanceAdmin(c) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Instance admin access required"})
-		return false
-	}
-	return true
-}
-
-// ListAdmins returns all instance admins. Admin-gated.
-// GET /api/instance/admins/
-func (h *InstanceSettingsHandler) ListAdmins(c *gin.Context) {
-	if !h.requireInstanceAdmin(c) {
-		return
-	}
-	admins, err := h.Admins.List(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load instance admins"})
-		return
-	}
-	c.JSON(http.StatusOK, admins)
-}
-
-type addAdminRequest struct {
-	Email string `json:"email" binding:"required,email"`
-	Role  *int16 `json:"role"`
-}
-
-// AddAdmin grants instance-admin to an existing user by email. Admin-gated.
-// POST /api/instance/admins/
-func (h *InstanceSettingsHandler) AddAdmin(c *gin.Context) {
-	if !h.requireInstanceAdmin(c) {
-		return
-	}
-	if h.Users == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Not configured"})
-		return
-	}
-	var req addAdminRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "detail": err.Error()})
-		return
-	}
-	u, err := h.Users.GetByEmail(c.Request.Context(), strings.TrimSpace(strings.ToLower(req.Email)))
-	if err != nil || u == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "No user with that email"})
-		return
-	}
-	// Idempotent: if already an admin, return the existing row.
-	if existing, err := h.Admins.GetByUserID(c.Request.Context(), u.ID); err == nil && existing != nil {
-		c.JSON(http.StatusOK, existing)
-		return
-	}
-	// Default to Owner when omitted; otherwise the role must be an explicit,
-	// valid admin level — reject anything else rather than silently coercing it.
-	role := model.RoleOwner
-	if req.Role != nil {
-		if *req.Role != model.RoleAdmin && *req.Role != model.RoleOwner {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
-			return
-		}
-		role = *req.Role
-	}
-	admin := &model.InstanceAdmin{UserID: u.ID, Role: role, IsVerified: true}
-	if err := h.Admins.Create(c.Request.Context(), admin); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add instance admin"})
-		return
-	}
-	c.JSON(http.StatusCreated, admin)
-}
-
-// RemoveAdmin revokes instance-admin by row id. Admin-gated; refuses to remove
-// the last remaining admin so the instance can't be locked out.
-// DELETE /api/instance/admins/:id/
-func (h *InstanceSettingsHandler) RemoveAdmin(c *gin.Context) {
-	if !h.requireInstanceAdmin(c) {
-		return
-	}
-	id, err := uuid.Parse(strings.TrimSpace(c.Param("id")))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid admin id"})
-		return
-	}
-	if err := h.Admins.DeleteByPKIfNotLast(c.Request.Context(), id); err != nil {
-		if errors.Is(err, store.ErrLastInstanceAdmin) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot remove the last instance admin"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove instance admin"})
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-// GetSettings returns all instance settings sections with secrets decrypted for
-// the admin UI (mirrors Plane). Admin access is required — the gate is the
-// protection, not masking.
+// GetSettings returns all instance settings sections; secrets are decrypted for admin UI.
 // GET /api/instance/settings/
 func (h *InstanceSettingsHandler) GetSettings(c *gin.Context) {
-	if !h.requireInstanceAdmin(c) {
-		return
-	}
 	all, err := h.Settings.GetAll(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load settings"})
@@ -266,7 +138,7 @@ func (h *InstanceSettingsHandler) GetSettings(c *gin.Context) {
 	}
 	out := make(map[string]model.JSONMap)
 	for k, row := range all {
-		out[k] = decryptSectionSecretsInternal(k, row.Value)
+		out[k] = decryptSectionSecrets(k, row.Value)
 	}
 	// Ensure all sections exist with defaults (migration seed may not have run if DB was created before seed)
 	for _, key := range []string{"general", "email", "auth", "oauth", "ai", "image", "github_app"} {
@@ -277,30 +149,57 @@ func (h *InstanceSettingsHandler) GetSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// secretKeysBySection lists the encrypted secret fields stored in each settings section.
-var secretKeysBySection = map[string][]string{
-	"email":      {"password"},
-	"oauth":      {"google_client_secret", "github_client_secret", "gitlab_client_secret"},
-	"ai":         {"api_key"},
-	"image":      {"unsplash_access_key"},
-	"github_app": {"private_key", "client_secret", "webhook_secret"},
-}
-
-// decryptSectionSecretsInternal returns a copy of m with secret fields decrypted.
-// Used both for the admin settings responses (admin-gated) and for server-side
-// use (building OAuth providers, proxying Unsplash).
-func decryptSectionSecretsInternal(sectionKey string, m model.JSONMap) model.JSONMap {
+// decryptSectionSecrets returns a copy of m with secret keys decrypted for response.
+func decryptSectionSecrets(sectionKey string, m model.JSONMap) model.JSONMap {
 	if m == nil {
 		return nil
 	}
-	out := make(model.JSONMap, len(m))
+	var secretKeys []string
+	switch sectionKey {
+	case "email":
+		secretKeys = []string{"password"}
+	case "oauth":
+		secretKeys = []string{"google_client_secret", "github_client_secret", "gitlab_client_secret"}
+	case "ai":
+		secretKeys = []string{"api_key"}
+	case "image":
+		secretKeys = []string{"unsplash_access_key"}
+	case "github_app":
+		// We never echo private_key / client_secret / webhook_secret back to the
+		// admin UI in plain text; only the *_set boolean flags are exposed.
+		// Returning the section unchanged is fine because the response builder
+		// strips these via stripSecretValues below.
+		return stripSecretValues(m, "private_key", "client_secret", "webhook_secret")
+	default:
+		return m
+	}
+	out := make(model.JSONMap)
 	for k, v := range m {
 		out[k] = v
 	}
-	for _, sk := range secretKeysBySection[sectionKey] {
+	for _, sk := range secretKeys {
 		if v, ok := out[sk].(string); ok {
 			out[sk] = crypto.DecryptOrPlain(v)
 		}
+	}
+	return out
+}
+
+// stripSecretValues returns a copy of m with the named keys replaced by an
+// empty string. Used for sections (like github_app) where a secret is stored
+// encrypted and exposed to the admin UI only through a *_set boolean.
+func stripSecretValues(m model.JSONMap, keys ...string) model.JSONMap {
+	out := make(model.JSONMap, len(m))
+	stripped := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		stripped[k] = true
+	}
+	for k, v := range m {
+		if stripped[k] {
+			out[k] = ""
+			continue
+		}
+		out[k] = v
 	}
 	return out
 }
@@ -341,9 +240,6 @@ type UpdateSettingRequest struct {
 // UpdateSetting updates one instance settings section by key.
 // PATCH /api/instance/settings/:key
 func (h *InstanceSettingsHandler) UpdateSetting(c *gin.Context) {
-	if !h.requireInstanceAdmin(c) {
-		return
-	}
 	key := strings.TrimSpace(strings.ToLower(c.Param("key")))
 	if key == "" || !allowedSettingKeys[key] {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid settings key"})
@@ -527,8 +423,8 @@ func (h *InstanceSettingsHandler) UpdateSetting(c *gin.Context) {
 	if h.OnSectionUpdated != nil {
 		h.OnSectionUpdated(c.Request.Context(), key)
 	}
-	// Return decrypted secrets so the admin UI reflects the saved value (Plane parity).
-	responseValue := decryptSectionSecretsInternal(key, value)
+	// Return decrypted secrets so client sees the value they just set
+	responseValue := decryptSectionSecrets(key, value)
 	c.JSON(http.StatusOK, gin.H{"key": key, "value": responseValue})
 }
 
@@ -566,7 +462,7 @@ func (h *InstanceSettingsHandler) UnsplashSearch(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsplash is not configured"})
 		return
 	}
-	decrypted := decryptSectionSecretsInternal("image", row.Value)
+	decrypted := decryptSectionSecrets("image", row.Value)
 	keyVal, _ := decrypted["unsplash_access_key"].(string)
 	keyVal = strings.TrimSpace(keyVal)
 	if keyVal == "" {

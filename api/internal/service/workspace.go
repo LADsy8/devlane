@@ -93,9 +93,6 @@ func (s *WorkspaceService) Update(ctx context.Context, slug string, userID uuid.
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.requireAdmin(ctx, w.ID, userID); err != nil {
-		return nil, err
-	}
 	if name != nil {
 		w.Name = *name
 	}
@@ -146,28 +143,6 @@ func (s *WorkspaceService) ListMembers(ctx context.Context, slug string, userID 
 	return s.ws.ListMembers(ctx, w.ID)
 }
 
-// callerRole returns the authenticated user's role in the workspace, or
-// ErrWorkspaceForbidden if they are not a member.
-func (s *WorkspaceService) callerRole(ctx context.Context, workspaceID, userID uuid.UUID) (int16, error) {
-	m, err := s.ws.GetMember(ctx, workspaceID, userID)
-	if err != nil || m == nil {
-		return 0, ErrWorkspaceForbidden
-	}
-	return m.Role, nil
-}
-
-// requireAdmin ensures the caller is at least a workspace admin.
-func (s *WorkspaceService) requireAdmin(ctx context.Context, workspaceID, userID uuid.UUID) (int16, error) {
-	role, err := s.callerRole(ctx, workspaceID, userID)
-	if err != nil {
-		return 0, err
-	}
-	if role < model.RoleAdmin {
-		return 0, ErrWorkspaceForbidden
-	}
-	return role, nil
-}
-
 func (s *WorkspaceService) GetMember(ctx context.Context, slug string, memberID uuid.UUID, userID uuid.UUID) (*model.WorkspaceMember, error) {
 	w, err := s.GetBySlug(ctx, slug, userID)
 	if err != nil {
@@ -181,25 +156,9 @@ func (s *WorkspaceService) GetMember(ctx context.Context, slug string, memberID 
 }
 
 func (s *WorkspaceService) UpdateMemberRole(ctx context.Context, slug string, memberID uuid.UUID, userID uuid.UUID, role int16) (*model.WorkspaceMember, error) {
-	w, err := s.GetBySlug(ctx, slug, userID)
+	m, err := s.GetMember(ctx, slug, memberID, userID)
 	if err != nil {
 		return nil, err
-	}
-	callerRole, err := s.requireAdmin(ctx, w.ID, userID)
-	if err != nil {
-		return nil, err
-	}
-	m, err := s.ws.GetMemberByPK(ctx, memberID)
-	if err != nil || m.WorkspaceID != w.ID {
-		return nil, ErrMemberNotFound
-	}
-	// Only the owner may change the owner's role; nobody may demote the owner.
-	if m.MemberID == w.OwnerID && userID != w.OwnerID {
-		return nil, ErrWorkspaceForbidden
-	}
-	// Cannot grant a role above your own, and only the owner may grant Owner.
-	if role > callerRole || (role >= model.RoleOwner && userID != w.OwnerID) {
-		return nil, ErrWorkspaceForbidden
 	}
 	m.Role = role
 	if err := s.ws.UpdateMember(ctx, m); err != nil {
@@ -213,16 +172,9 @@ func (s *WorkspaceService) DeleteMember(ctx context.Context, slug string, member
 	if err != nil {
 		return err
 	}
-	if _, err := s.requireAdmin(ctx, w.ID, userID); err != nil {
-		return err
-	}
 	m, err := s.ws.GetMemberByPK(ctx, memberID)
 	if err != nil || m.WorkspaceID != w.ID {
 		return ErrMemberNotFound
-	}
-	// The workspace owner cannot be removed.
-	if m.MemberID == w.OwnerID {
-		return ErrWorkspaceForbidden
 	}
 	return s.ws.DeleteMember(ctx, w.ID, m.MemberID)
 }
@@ -242,14 +194,6 @@ func (s *WorkspaceService) CreateInvite(ctx context.Context, slug string, userID
 	w, err := s.GetBySlug(ctx, slug, userID)
 	if err != nil {
 		return nil, err
-	}
-	callerRole, err := s.requireAdmin(ctx, w.ID, userID)
-	if err != nil {
-		return nil, err
-	}
-	// Cannot invite at a role above your own.
-	if role > callerRole {
-		return nil, ErrWorkspaceForbidden
 	}
 	token := genInviteToken()
 	inv := &model.WorkspaceMemberInvite{
@@ -286,11 +230,8 @@ func (s *WorkspaceService) GetInvite(ctx context.Context, slug string, inviteID 
 }
 
 func (s *WorkspaceService) DeleteInvite(ctx context.Context, slug string, inviteID uuid.UUID, userID uuid.UUID) error {
-	inv, err := s.GetInvite(ctx, slug, inviteID, userID)
+	_, err := s.GetInvite(ctx, slug, inviteID, userID)
 	if err != nil {
-		return err
-	}
-	if _, err := s.requireAdmin(ctx, inv.WorkspaceID, userID); err != nil {
 		return err
 	}
 	return s.winv.Delete(ctx, inviteID)

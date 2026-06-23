@@ -5,7 +5,6 @@ import type {
   UserApiResponse,
   InstanceSettingsResponse,
   InstanceSettingSectionValue,
-  InstanceAdminApiResponse,
 } from '../api/types';
 
 /**
@@ -57,27 +56,5 @@ export const instanceSettingsService = {
       { params: { q: q.trim() } },
     );
     return data;
-  },
-};
-
-/** Instance-admin management (requires instance-admin access). */
-export const instanceAdminService = {
-  /** GET /api/instance/admins/ */
-  async listAdmins(): Promise<InstanceAdminApiResponse[]> {
-    const { data } = await apiClient.get<InstanceAdminApiResponse[]>('/api/instance/admins/');
-    return data;
-  },
-
-  /** POST /api/instance/admins/ — grants admin to an existing user by email. */
-  async addAdmin(email: string): Promise<InstanceAdminApiResponse> {
-    const { data } = await apiClient.post<InstanceAdminApiResponse>('/api/instance/admins/', {
-      email: email.trim(),
-    });
-    return data;
-  },
-
-  /** DELETE /api/instance/admins/:id/ */
-  async removeAdmin(id: string): Promise<void> {
-    await apiClient.delete(`/api/instance/admins/${encodeURIComponent(id)}/`);
   },
 };

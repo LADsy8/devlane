@@ -19,7 +19,6 @@ var (
 	ErrIntegrationAlreadyInstalled = errors.New("integration already installed in this workspace")
 	ErrGitHubAppNotConfigured      = errors.New("github app is not configured")
 	ErrInstallationFetch           = errors.New("failed to fetch github installation")
-	ErrInstallationAlreadyLinked   = errors.New("github installation is already linked to another workspace")
 )
 
 // IntegrationService coordinates the generic Integration / WorkspaceIntegration
@@ -124,9 +123,8 @@ func (s *IntegrationService) InstallGitHub(ctx context.Context, workspaceSlug st
 	if err != nil {
 		return nil, ErrWorkspaceNotFound
 	}
-	// Linking a GitHub App installation grants the workspace access to the
-	// installation's repos — restrict it to workspace admins.
-	if m, err := s.ws.GetMember(ctx, w.ID, userID); err != nil || m == nil || m.Role < model.RoleAdmin {
+	ok, _ := s.ws.IsMember(ctx, w.ID, userID)
+	if !ok {
 		return nil, ErrWorkspaceForbidden
 	}
 	gh, err := s.is.GetByProvider(ctx, "github")
@@ -163,11 +161,11 @@ func (s *IntegrationService) InstallGitHub(ctx context.Context, workspaceSlug st
 			existing.Provider = "github"
 			return existing, nil
 		}
-		// Bound to a different workspace already. Refuse — otherwise any admin who
-		// guesses/enumerates an installation_id could steal another org's
-		// installation (and the private-repo access it carries) into their own
-		// workspace. The rightful owner must uninstall first.
-		return nil, ErrInstallationAlreadyLinked
+		// Different workspace — soft-delete the old row so the unique partial
+		// index frees up, then create the new row.
+		if err := s.wis.Delete(ctx, existing.ID); err != nil {
+			return nil, err
+		}
 	}
 
 	// New installation in this workspace — error if the workspace already has
@@ -217,10 +215,6 @@ func (s *IntegrationService) Uninstall(ctx context.Context, workspaceSlug, provi
 	wi, err := s.GetByProvider(ctx, workspaceSlug, provider, userID)
 	if err != nil {
 		return err
-	}
-	// Disconnecting a workspace integration is admin-only.
-	if m, err := s.ws.GetMember(ctx, wi.WorkspaceID, userID); err != nil || m == nil || m.Role < model.RoleAdmin {
-		return ErrWorkspaceForbidden
 	}
 	if provider == "github" && s.githubClient != nil && wi.InstallationID != nil {
 		s.githubClient.InvalidateInstallation(*wi.InstallationID)

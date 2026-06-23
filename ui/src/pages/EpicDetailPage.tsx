@@ -6,7 +6,6 @@ import { projectService } from '../services/projectService';
 import { epicService } from '../services/epicService';
 import { issueService } from '../services/issueService';
 import { stateService } from '../services/stateService';
-import { safeUrl } from '../lib/sanitize';
 import type {
   IssueLinkApiResponse,
   IssueApiResponse,
@@ -304,7 +303,7 @@ export function EpicDetailPage() {
               {links.map((l) => (
                 <div key={l.id} className="flex items-center gap-1 group">
                   <a
-                    href={safeUrl(l.url)}
+                    href={l.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="min-w-0 flex-1 truncate text-xs text-(--txt-accent-primary) hover:underline"

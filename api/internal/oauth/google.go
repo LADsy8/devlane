@@ -61,13 +61,6 @@ func (g *GoogleProvider) GetUserInfo(ctx context.Context, token *TokenData) (*Us
 	if err != nil {
 		return nil, err
 	}
-	// Refuse an unverified email: a provider account asserting (but not having
-	// verified) the victim's address must not be linked to their account.
-	if v, ok := resp["verified_email"]; ok {
-		if b, ok := v.(bool); ok && !b {
-			return nil, ErrEmailNotVerified
-		}
-	}
 	return &UserInfo{
 		Email:      strVal(resp, "email"),
 		FirstName:  strVal(resp, "given_name"),

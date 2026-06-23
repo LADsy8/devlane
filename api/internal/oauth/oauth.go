@@ -18,7 +18,6 @@ var (
 	ErrCodeMissing           = errors.New("oauth code missing")
 	ErrTokenExchange         = errors.New("oauth token exchange failed")
 	ErrUserInfo              = errors.New("oauth user info fetch failed")
-	ErrEmailNotVerified      = errors.New("oauth provider email is not verified")
 )
 
 // oauthHTTPClient bounds OAuth HTTP latency; requests also respect ctx cancellation.
