@@ -75,6 +75,8 @@ For contribution workflow and code style, see [CONTRIBUTING](CONTRIBUTING.md) if
 
 Contributions are welcome. Please open an issue for bugs or feature ideas, and read [CONTRIBUTING](CONTRIBUTING.md) for pull request and development guidelines.
 
+AI-assisted contributions are accepted, but must be disclosed — note the tool in the PR's **AI assistance** section and add a `Co-Authored-By:` trailer to AI-assisted commits. See [CONTRIBUTING](CONTRIBUTING.md#use-of-ai-assistance).
+
 ---
 
 ## Repo Activity

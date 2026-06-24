@@ -60,3 +60,12 @@ body:
     id: additional
     attributes:
       label: Additional context
+
+  - type: checkboxes
+    id: ai_disclosure
+    attributes:
+      label: AI assistance
+      description: Devlane accepts AI-assisted issues — please disclose if you used an AI tool to write this.
+      options:
+        - label: This issue was created or substantially drafted with AI assistance.
+          required: false

@@ -59,6 +59,12 @@
      - Touches a migration (irreversible without down-migration)?
      - Cross-PR dependency? -->
 
+## AI assistance
+
+<!-- Devlane accepts AI-assisted contributions, but they must be disclosed (see CONTRIBUTING.md). Tick one. -->
+- [ ] No AI tools were used for this PR
+- [ ] AI tools were used — tool(s): `____` — and AI-assisted commits include a `Co-Authored-By:` trailer
+
 ## Checklist
 
 - [ ] PR title is `refactor(<scope>): …` and ≤ 100 chars
