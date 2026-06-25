@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { GripVertical } from 'lucide-react';
 import { IssuePRBadge } from '../IssuePRBadge';
 import {
   DueDateCell,
@@ -9,6 +10,7 @@ import {
   WorkItemAvatarGroup,
 } from '../IssueRowCells';
 import { membersFromAssigneeIds } from '../../../lib/issueRowHelpers';
+import { cn } from '../../../lib/utils';
 import type { IssueApiResponse, LabelApiResponse } from '../../../api/types';
 import type { Priority } from '../../../types';
 import type { GroupedIssuesResult } from '../../../lib/issueListGroupAndSort';
@@ -37,6 +39,12 @@ interface IssueLayoutListProps extends IssueLayoutProps {
     selectedIds: Set<string>;
     onToggle: (id: string) => void;
   };
+  /**
+   * Optional manual reorder (drag-and-drop). Only active for the flat
+   * (ungrouped) list; the parent persists the new order. `after` indicates the
+   * dragged item should land below the drop target rather than above.
+   */
+  onReorder?: (activeId: string, overId: string, after: boolean) => void;
 }
 
 export function IssueLayoutList({
@@ -54,9 +62,20 @@ export function IssueLayoutList({
   cycleName,
   moduleName,
   selection,
+  onReorder,
 }: IssueLayoutListProps) {
   const stateById = useMemo(() => new Map(states.map((s) => [s.id, s])), [states]);
   const labelById = useMemo(() => new Map(labels.map((l) => [l.id, l])), [labels]);
+
+  // Drag-to-reorder is only offered on the flat list (the parent decides whether
+  // manual ordering is active by passing onReorder).
+  const reorderable = Boolean(onReorder && groupedIssues.isFlat);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: string; after: boolean } | null>(null);
+  const clearDrag = () => {
+    setDraggingId(null);
+    setDropTarget(null);
+  };
 
   const renderRow = (issue: IssueApiResponse) => {
     const displayId = `${project.identifier ?? project.id.slice(0, 8)}-${issue.sequence_id ?? issue.id.slice(-4)}`;
@@ -69,8 +88,55 @@ export function IssueLayoutList({
     const prInfo = prSummary[issue.id];
     const startStr = formatShort(issue.start_date);
 
+    const isDropTarget = reorderable && dropTarget?.id === issue.id && draggingId !== issue.id;
+
     return (
-      <li key={issue.id} className="flex items-center">
+      <li
+        key={issue.id}
+        className={cn(
+          'group/row flex items-center',
+          draggingId === issue.id && 'opacity-50',
+          isDropTarget &&
+            (dropTarget!.after
+              ? 'shadow-[inset_0_-2px_0_0_var(--border-focus)]'
+              : 'shadow-[inset_0_2px_0_0_var(--border-focus)]'),
+        )}
+        onDragOver={
+          reorderable
+            ? (e) => {
+                if (!draggingId) return;
+                e.preventDefault();
+                const r = e.currentTarget.getBoundingClientRect();
+                setDropTarget({ id: issue.id, after: e.clientY > r.top + r.height / 2 });
+              }
+            : undefined
+        }
+        onDrop={
+          reorderable
+            ? (e) => {
+                e.preventDefault();
+                const after = dropTarget?.after ?? false;
+                if (draggingId && draggingId !== issue.id) onReorder!(draggingId, issue.id, after);
+                clearDrag();
+              }
+            : undefined
+        }
+      >
+        {reorderable ? (
+          <span
+            draggable
+            onDragStart={(e) => {
+              setDraggingId(issue.id);
+              e.dataTransfer.effectAllowed = 'move';
+            }}
+            onDragEnd={clearDrag}
+            className="flex shrink-0 cursor-grab items-center pl-2 text-(--txt-icon-tertiary) opacity-0 transition-opacity hover:text-(--txt-icon-secondary) active:cursor-grabbing group-hover/row:opacity-100"
+            aria-label={`Reorder ${displayId}`}
+            title="Drag to reorder"
+          >
+            <GripVertical className="size-4" />
+          </span>
+        ) : null}
         {selection ? (
           <span className="shrink-0 pl-4">
             <input
@@ -83,6 +149,7 @@ export function IssueLayoutList({
           </span>
         ) : null}
         <Link
+          draggable={false}
           to={issueHref(issue.id)}
           className="flex min-h-12 flex-1 items-center gap-3 px-4 py-2.5 no-underline transition-colors hover:bg-(--bg-layer-1-hover)"
         >

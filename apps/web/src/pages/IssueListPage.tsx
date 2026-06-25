@@ -554,6 +554,36 @@ export function IssueListPage() {
     now,
   };
 
+  // Manual drag-to-reorder (flat list + manual order): build the new flat order,
+  // assign evenly-spaced sort_order optimistically, then persist the id order so
+  // it works even when items currently share the default sort_order.
+  const handleReorder = (activeId: string, overId: string, after: boolean) => {
+    if (!workspaceSlug || !projectId || activeId === overId) return;
+    const flat = groupedIssues.isFlat
+      ? (groupedIssues.groups.get(groupedIssues.order[0]) ?? [])
+      : [];
+    const without = flat.filter((i) => i.id !== activeId);
+    const overIdx = without.findIndex((i) => i.id === overId);
+    if (overIdx === -1) return;
+    const active = flat.find((i) => i.id === activeId);
+    if (!active) return;
+    const insertIdx = after ? overIdx + 1 : overIdx;
+    const newOrder = [...without.slice(0, insertIdx), active, ...without.slice(insertIdx)];
+    const orderById = new Map(newOrder.map((iss, idx) => [iss.id, (idx + 1) * 1024]));
+    setIssues((prev) =>
+      prev.map((i) => (orderById.has(i.id) ? { ...i, sort_order: orderById.get(i.id)! } : i)),
+    );
+    issueService
+      .reorder(
+        workspaceSlug,
+        projectId,
+        newOrder.map((i) => i.id),
+      )
+      .catch(() => refetchIssues());
+  };
+
+  const reorderEnabled = listDisplay.orderBy === 'manual';
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between gap-4 border-b border-(--border-subtle) px-4 py-3">
@@ -674,6 +704,7 @@ export function IssueListPage() {
               cycleName={cycleName}
               moduleName={moduleName}
               selection={{ selectedIds, onToggle: toggleSelect }}
+              onReorder={reorderEnabled ? handleReorder : undefined}
             />
           )}
           {layout === 'board' && <IssueLayoutBoard {...layoutProps} />}
