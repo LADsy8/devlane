@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Badge } from '../components/ui';
+import { CycleBurndownChart } from '../components/cycles/CycleBurndownChart';
 import { workspaceService } from '../services/workspaceService';
 import { projectService } from '../services/projectService';
 import { cycleService, type CycleProgressResponse } from '../services/cycleService';
@@ -43,55 +44,6 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color:
         />
       </div>
       <span className="w-8 text-right text-xs tabular-nums text-(--txt-tertiary)">{pct}%</span>
-    </div>
-  );
-}
-
-function BurndownChart({
-  chart,
-  startDate,
-  endDate,
-}: {
-  chart: Record<string, number | null>;
-  startDate?: string | null;
-  endDate?: string | null;
-}) {
-  const entries = Object.entries(chart)
-    .filter(([, v]) => v != null)
-    .sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0) {
-    return <p className="text-xs text-(--txt-tertiary)">No completion data yet.</p>;
-  }
-  const maxVal = Math.max(...entries.map(([, v]) => v as number), 1);
-  return (
-    <div>
-      <p className="mb-2 text-xs font-medium text-(--txt-secondary)">Completions per day</p>
-      <div className="flex h-24 items-end gap-0.5 overflow-x-auto">
-        {entries.map(([date, count]) => {
-          const h = Math.round(((count as number) / maxVal) * 100);
-          return (
-            <div
-              key={date}
-              className="group relative flex flex-col items-center"
-              style={{ minWidth: 12 }}
-            >
-              <div
-                className="w-2.5 rounded-t bg-(--bg-accent-primary) opacity-80 transition-all group-hover:opacity-100"
-                style={{ height: `${h}%` }}
-              />
-              <div className="absolute bottom-full mb-1 hidden whitespace-nowrap rounded bg-(--bg-surface-1) px-1.5 py-0.5 text-[10px] text-(--txt-secondary) shadow group-hover:block">
-                {date}: {count}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {(startDate || endDate) && (
-        <div className="mt-1 flex justify-between text-[10px] text-(--txt-tertiary)">
-          <span>{startDate ? formatDate(startDate) : ''}</span>
-          <span>{endDate ? formatDate(endDate) : ''}</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -217,15 +169,13 @@ export function CycleDetailPage() {
 
           {/* Burndown chart */}
           <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) p-4">
-            {progress.distribution?.completion_chart ? (
-              <BurndownChart
-                chart={progress.distribution.completion_chart as Record<string, number | null>}
-                startDate={cycle.start_date}
-                endDate={cycle.end_date}
-              />
-            ) : (
-              <p className="text-xs text-(--txt-tertiary)">No completion data yet.</p>
-            )}
+            <p className="mb-2 text-xs font-medium text-(--txt-secondary)">Burndown</p>
+            <CycleBurndownChart
+              completionChart={progress.distribution?.completion_chart ?? {}}
+              total={progress.total_issues}
+              startDate={cycle.start_date}
+              endDate={cycle.end_date}
+            />
           </div>
         </div>
       )}
