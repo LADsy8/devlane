@@ -213,6 +213,41 @@ func (s *IssueService) ListArchived(ctx context.Context, workspaceSlug string, p
 	return s.is.ListArchivedByProjectID(ctx, projectID, limit, offset)
 }
 
+// BulkUpdate applies priority/state changes to many issues in a project at
+// once. Returns the number of rows affected.
+func (s *IssueService) BulkUpdate(ctx context.Context, workspaceSlug string, projectID, userID uuid.UUID, issueIDs []uuid.UUID, priority *string, stateID *uuid.UUID) (int, error) {
+	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
+		return 0, err
+	}
+	updates := map[string]any{}
+	if priority != nil {
+		updates["priority"] = *priority
+	}
+	if stateID != nil {
+		updates["state_id"] = *stateID
+	}
+	n, err := s.is.BulkUpdateFields(ctx, projectID, issueIDs, updates)
+	return int(n), err
+}
+
+// BulkArchive archives or restores many issues in a project at once.
+func (s *IssueService) BulkArchive(ctx context.Context, workspaceSlug string, projectID, userID uuid.UUID, issueIDs []uuid.UUID, archived bool) (int, error) {
+	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
+		return 0, err
+	}
+	n, err := s.is.BulkSetArchived(ctx, projectID, issueIDs, archived)
+	return int(n), err
+}
+
+// BulkDelete soft-deletes many issues in a project at once.
+func (s *IssueService) BulkDelete(ctx context.Context, workspaceSlug string, projectID, userID uuid.UUID, issueIDs []uuid.UUID) (int, error) {
+	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
+		return 0, err
+	}
+	n, err := s.is.BulkSoftDelete(ctx, projectID, issueIDs)
+	return int(n), err
+}
+
 // ListDraftsForWorkspace returns draft issues for all projects in the workspace the user can access.
 func (s *IssueService) ListDraftsForWorkspace(ctx context.Context, workspaceSlug string, userID uuid.UUID, limit, offset int) ([]model.Issue, error) {
 	wrk, err := s.ensureWorkspaceAccess(ctx, workspaceSlug, userID)

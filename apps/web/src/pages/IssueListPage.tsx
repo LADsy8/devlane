@@ -118,6 +118,28 @@ export function IssueListPage() {
       .catch(() => {});
   };
 
+  // Multi-select for bulk actions (list layout).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const runBulk = async (fn: (slug: string, pid: string, ids: string[]) => Promise<void>) => {
+    if (!workspaceSlug || !projectId || selectedIds.size === 0) return;
+    try {
+      await fn(workspaceSlug, projectId, [...selectedIds]);
+      clearSelection();
+      refetchIssues();
+    } catch {
+      // best-effort; a transient failure shouldn't wedge the toolbar
+    }
+  };
+
   useEffect(() => {
     if (!workspaceSlug || !projectId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset loading when no slug/project (kept for future use)
@@ -552,6 +574,77 @@ export function IssueListPage() {
         </div>
       ) : (
         <>
+          {layout === 'list' && selectedIds.size > 0 && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-(--border-subtle) bg-(--bg-surface-1) px-4 py-2 text-sm">
+              <span className="font-medium text-(--txt-secondary)">
+                {selectedIds.size} selected
+              </span>
+              <select
+                aria-label="Set priority for selected"
+                className="rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-2 py-1 text-xs text-(--txt-secondary)"
+                value=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  e.currentTarget.value = '';
+                  if (v)
+                    void runBulk((s, p, ids) =>
+                      issueService.bulkUpdate(s, p, ids, { priority: v }),
+                    );
+                }}
+              >
+                <option value="">Set priority…</option>
+                {['urgent', 'high', 'medium', 'low', 'none'].map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Set state for selected"
+                className="rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-2 py-1 text-xs text-(--txt-secondary)"
+                value=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  e.currentTarget.value = '';
+                  if (v)
+                    void runBulk((s, p, ids) =>
+                      issueService.bulkUpdate(s, p, ids, { state_id: v }),
+                    );
+                }}
+              >
+                <option value="">Set state…</option>
+                {states.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="rounded-(--radius-md) border border-(--border-subtle) px-2 py-1 text-xs text-(--txt-secondary) hover:bg-(--bg-layer-1-hover)"
+                onClick={() => void runBulk((s, p, ids) => issueService.bulkArchive(s, p, ids))}
+              >
+                Archive
+              </button>
+              <button
+                type="button"
+                className="rounded-(--radius-md) border border-(--border-subtle) px-2 py-1 text-xs text-(--txt-danger-primary) hover:bg-(--bg-layer-1-hover)"
+                onClick={() => {
+                  if (window.confirm(`Delete ${selectedIds.size} work item(s)?`))
+                    void runBulk((s, p, ids) => issueService.bulkDelete(s, p, ids));
+                }}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                className="ml-auto rounded-(--radius-md) px-2 py-1 text-xs text-(--txt-tertiary) hover:text-(--txt-secondary)"
+                onClick={clearSelection}
+              >
+                Clear
+              </button>
+            </div>
+          )}
           {layout === 'list' && (
             <IssueLayoutList
               {...layoutProps}
@@ -561,6 +654,7 @@ export function IssueListPage() {
               subWorkCountByParentId={subWorkCountByParentId}
               cycleName={cycleName}
               moduleName={moduleName}
+              selection={{ selectedIds, onToggle: toggleSelect }}
             />
           )}
           {layout === 'board' && <IssueLayoutBoard {...layoutProps} />}

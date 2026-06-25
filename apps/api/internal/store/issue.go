@@ -142,6 +142,39 @@ func (s *IssueStore) Delete(ctx context.Context, id uuid.UUID) error {
 	return s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Issue{}).Error
 }
 
+// BulkUpdateFields updates the given columns for many issues scoped to a
+// project. Returns the number of rows affected.
+func (s *IssueStore) BulkUpdateFields(ctx context.Context, projectID uuid.UUID, ids []uuid.UUID, updates map[string]any) (int64, error) {
+	if len(ids) == 0 || len(updates) == 0 {
+		return 0, nil
+	}
+	res := s.db.WithContext(ctx).
+		Model(&model.Issue{}).
+		Where("project_id = ? AND id IN ? AND deleted_at IS NULL", projectID, ids).
+		Updates(updates)
+	return res.RowsAffected, res.Error
+}
+
+// BulkSetArchived archives or restores many issues scoped to a project.
+func (s *IssueStore) BulkSetArchived(ctx context.Context, projectID uuid.UUID, ids []uuid.UUID, archived bool) (int64, error) {
+	updates := map[string]any{"archived_at": nil}
+	if archived {
+		updates["archived_at"] = time.Now()
+	}
+	return s.BulkUpdateFields(ctx, projectID, ids, updates)
+}
+
+// BulkSoftDelete soft-deletes many issues scoped to a project.
+func (s *IssueStore) BulkSoftDelete(ctx context.Context, projectID uuid.UUID, ids []uuid.UUID) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res := s.db.WithContext(ctx).
+		Where("project_id = ? AND id IN ? AND deleted_at IS NULL", projectID, ids).
+		Delete(&model.Issue{})
+	return res.RowsAffected, res.Error
+}
+
 func (s *IssueStore) AddAssignee(ctx context.Context, a *model.IssueAssignee) error {
 	return s.db.WithContext(ctx).Create(a).Error
 }

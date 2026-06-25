@@ -18,6 +18,9 @@ export interface ListIssuesParams {
 const base = (slug: string, pid: string, iid: string) =>
   `/api/workspaces/${encodeURIComponent(slug)}/projects/${encodeURIComponent(pid)}/issues/${encodeURIComponent(iid)}`;
 
+const bulkBase = (slug: string, pid: string) =>
+  `/api/workspaces/${encodeURIComponent(slug)}/projects/${encodeURIComponent(pid)}/issues-bulk`;
+
 export const issueService = {
   async listWorkspaceDrafts(
     workspaceSlug: string,
@@ -315,5 +318,33 @@ export const issueService = {
     const url = `/api/workspaces/${encodeURIComponent(workspaceSlug)}/projects/${encodeURIComponent(projectId)}/archived-issues/${qs ? `?${qs}` : ''}`;
     const { data } = await apiClient.get<IssueApiResponse[]>(url);
     return data;
+  },
+
+  async bulkUpdate(
+    workspaceSlug: string,
+    projectId: string,
+    issueIds: string[],
+    fields: { priority?: string; state_id?: string },
+  ): Promise<void> {
+    await apiClient.post(`${bulkBase(workspaceSlug, projectId)}/update/`, {
+      issue_ids: issueIds,
+      ...fields,
+    });
+  },
+
+  async bulkArchive(
+    workspaceSlug: string,
+    projectId: string,
+    issueIds: string[],
+    archived = true,
+  ): Promise<void> {
+    await apiClient.post(`${bulkBase(workspaceSlug, projectId)}/archive/`, {
+      issue_ids: issueIds,
+      archived,
+    });
+  },
+
+  async bulkDelete(workspaceSlug: string, projectId: string, issueIds: string[]): Promise<void> {
+    await apiClient.post(`${bulkBase(workspaceSlug, projectId)}/delete/`, { issue_ids: issueIds });
   },
 };

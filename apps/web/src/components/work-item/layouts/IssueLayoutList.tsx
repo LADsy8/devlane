@@ -32,6 +32,11 @@ interface IssueLayoutListProps extends IssueLayoutProps {
   cycleName: (issue: IssueApiResponse) => string;
   /** Resolves the issue's first module to a display name; '—' when none. */
   moduleName: (issue: IssueApiResponse) => string;
+  /** Optional multi-select support for bulk actions. */
+  selection?: {
+    selectedIds: Set<string>;
+    onToggle: (id: string) => void;
+  };
 }
 
 export function IssueLayoutList({
@@ -48,6 +53,7 @@ export function IssueLayoutList({
   subWorkCountByParentId,
   cycleName,
   moduleName,
+  selection,
 }: IssueLayoutListProps) {
   const stateById = useMemo(() => new Map(states.map((s) => [s.id, s])), [states]);
   const labelById = useMemo(() => new Map(labels.map((l) => [l.id, l])), [labels]);
@@ -64,10 +70,21 @@ export function IssueLayoutList({
     const startStr = formatShort(issue.start_date);
 
     return (
-      <li key={issue.id}>
+      <li key={issue.id} className="flex items-center">
+        {selection ? (
+          <span className="shrink-0 pl-4">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 cursor-pointer align-middle"
+              checked={selection.selectedIds.has(issue.id)}
+              onChange={() => selection.onToggle(issue.id)}
+              aria-label={`Select ${displayId}`}
+            />
+          </span>
+        ) : null}
         <Link
           to={issueHref(issue.id)}
-          className="flex min-h-12 items-center gap-3 px-4 py-2.5 no-underline transition-colors hover:bg-(--bg-layer-1-hover)"
+          className="flex min-h-12 flex-1 items-center gap-3 px-4 py-2.5 no-underline transition-colors hover:bg-(--bg-layer-1-hover)"
         >
           <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm">
             {hasCol('priority') ? (
