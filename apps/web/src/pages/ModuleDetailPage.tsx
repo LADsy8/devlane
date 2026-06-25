@@ -23,6 +23,7 @@ import type {
 import type { Priority } from '../types';
 import type { SavedViewDisplayPropertyId } from '../lib/projectSavedViewDisplay';
 import { getImageUrl } from '../lib/utils';
+import { ModuleLinksSection } from '../components/module-work-items/ModuleLinksSection';
 import { slugify } from '../lib/slug';
 import { buildGroupedIssues } from '../lib/issueListGroupAndSort';
 import {
@@ -650,6 +651,13 @@ export function ModuleDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {workspaceSlug && projectId && resolvedModuleId && (
+        <ModuleLinksSection
+          workspaceSlug={workspaceSlug}
+          projectId={projectId}
+          moduleId={resolvedModuleId}
+        />
+      )}
       {issues.length === 0 && (
         <section className="space-y-4">
           <div>

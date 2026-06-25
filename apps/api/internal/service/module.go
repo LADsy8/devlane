@@ -8,6 +8,7 @@ import (
 	"github.com/Devlaner/devlane/api/internal/model"
 	"github.com/Devlaner/devlane/api/internal/store"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 var ErrModuleNotFound = errors.New("module not found")
@@ -200,6 +201,90 @@ func (s *ModuleService) Delete(ctx context.Context, workspaceSlug string, projec
 		return ErrModuleNotFound
 	}
 	return s.ms.Delete(ctx, moduleID)
+}
+
+// ListLinks returns the module's external links after auth-checking.
+func (s *ModuleService) ListLinks(ctx context.Context, workspaceSlug string, projectID, moduleID, userID uuid.UUID) ([]model.ModuleLink, error) {
+	mod, err := s.Get(ctx, workspaceSlug, projectID, moduleID, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.ms.ListLinksForModule(ctx, mod.ID)
+}
+
+// CreateLink attaches an external link to the module.
+func (s *ModuleService) CreateLink(ctx context.Context, workspaceSlug string, projectID, moduleID, userID uuid.UUID, title, url string) (*model.ModuleLink, error) {
+	mod, err := s.Get(ctx, workspaceSlug, projectID, moduleID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if title == "" {
+		title = url
+	}
+	l := &model.ModuleLink{
+		Title:       title,
+		URL:         url,
+		ModuleID:    mod.ID,
+		ProjectID:   mod.ProjectID,
+		WorkspaceID: mod.WorkspaceID,
+		CreatedByID: &userID,
+		UpdatedByID: &userID,
+	}
+	if err := s.ms.CreateLink(ctx, l); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+// resolveModuleLink fetches a link and verifies it belongs to the module,
+// distinguishing a missing link (ErrModuleNotFound -> 404) from a real DB error.
+func (s *ModuleService) resolveModuleLink(ctx context.Context, linkID, moduleID uuid.UUID) (*model.ModuleLink, error) {
+	l, err := s.ms.GetLinkByID(ctx, linkID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrModuleNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if l.ModuleID != moduleID {
+		return nil, ErrModuleNotFound
+	}
+	return l, nil
+}
+
+// UpdateLink edits a module link's title/URL.
+func (s *ModuleService) UpdateLink(ctx context.Context, workspaceSlug string, projectID, moduleID, linkID, userID uuid.UUID, title, url string) (*model.ModuleLink, error) {
+	mod, err := s.Get(ctx, workspaceSlug, projectID, moduleID, userID)
+	if err != nil {
+		return nil, err
+	}
+	l, err := s.resolveModuleLink(ctx, linkID, mod.ID)
+	if err != nil {
+		return nil, err
+	}
+	if title != "" {
+		l.Title = title
+	}
+	if url != "" {
+		l.URL = url
+	}
+	l.UpdatedByID = &userID
+	if err := s.ms.UpdateLink(ctx, l); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+// DeleteLink removes a module link.
+func (s *ModuleService) DeleteLink(ctx context.Context, workspaceSlug string, projectID, moduleID, linkID, userID uuid.UUID) error {
+	mod, err := s.Get(ctx, workspaceSlug, projectID, moduleID, userID)
+	if err != nil {
+		return err
+	}
+	if _, err := s.resolveModuleLink(ctx, linkID, mod.ID); err != nil {
+		return err
+	}
+	return s.ms.DeleteLink(ctx, linkID)
 }
 
 func (s *ModuleService) ListModuleIssueIDs(ctx context.Context, workspaceSlug string, projectID, moduleID uuid.UUID, userID uuid.UUID) ([]uuid.UUID, error) {
