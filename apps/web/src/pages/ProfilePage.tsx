@@ -107,7 +107,7 @@ export function ProfilePage() {
     return user ?? null; // Only current user supported until user-by-id API exists
   }, [userId, user]);
 
-  useDocumentTitle(profileUser?.name ?? 'Profile');
+  useDocumentTitle(loading ? 'Profile' : (profileUser?.name ?? 'Profile'));
 
   const member = profileUser ? (members.find((m) => m.member_id === profileUser.id) ?? null) : null;
   const joinedAt = member?.created_at ?? new Date().toISOString();

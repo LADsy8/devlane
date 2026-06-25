@@ -111,7 +111,7 @@ export function CycleDetailPage() {
   const [states, setStates] = useState<StateApiResponse[]>([]);
   const [progress, setProgress] = useState<CycleProgressResponse | null>(null);
 
-  useDocumentTitle(cycle?.name ?? 'Cycle');
+  useDocumentTitle(loading ? 'Cycle' : (cycle?.name ?? 'Cycle'));
 
   useEffect(() => {
     if (!workspaceSlug || !projectId || !cycleId) return;

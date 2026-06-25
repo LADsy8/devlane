@@ -205,7 +205,7 @@ export function ModuleDetailPage() {
     cloneDefaultProjectIssuesDisplay(),
   );
 
-  useDocumentTitle(module?.name ?? 'Module');
+  useDocumentTitle(loading ? 'Module' : (module?.name ?? 'Module'));
 
   const createParam = searchParams.get('create') === '1';
 

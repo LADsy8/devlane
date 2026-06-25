@@ -84,7 +84,7 @@ export function PageDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  useDocumentTitle(page?.name ?? 'Page');
+  useDocumentTitle(loading ? 'Page' : (page?.name ?? 'Page'));
 
   const [titleInput, setTitleInput] = useState('');
   const [titleStatus, setTitleStatus] = useState<SaveStatus>({ kind: 'idle' });

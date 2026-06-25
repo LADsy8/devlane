@@ -218,7 +218,7 @@ export function ViewDetailPage() {
   const [issuesLoading, setIssuesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useDocumentTitle(view?.name ?? 'View');
+  useDocumentTitle(loading ? 'View' : (view?.name ?? 'View'));
 
   const refetchIssues = () => {
     if (!workspaceSlug || !projectId) return;

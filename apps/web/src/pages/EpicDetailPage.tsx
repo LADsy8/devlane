@@ -49,7 +49,7 @@ export function EpicDetailPage() {
   const [addLinkTitle, setAddLinkTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  useDocumentTitle(epic?.name ?? 'Epic');
+  useDocumentTitle(loading ? 'Epic' : (epic?.name ?? 'Epic'));
 
   useEffect(() => {
     if (!workspaceSlug || !projectId || !epicId) return;

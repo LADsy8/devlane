@@ -320,7 +320,7 @@ export function IssueDetailPage() {
   const [attachments, setAttachments] = useState<IssueAttachmentApiResponse[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
-  useDocumentTitle(issue?.name ?? 'Work item');
+  useDocumentTitle(loading ? 'Work item' : (issue?.name ?? 'Work item'));
 
   useEffect(() => {
     if (!workspaceSlug || !projectId || !issueId) {
