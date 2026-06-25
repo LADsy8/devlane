@@ -65,6 +65,7 @@ func New(cfg Config) *gin.Engine {
 	cycleStore := store.NewCycleStore(cfg.DB)
 	moduleStore := store.NewModuleStore(cfg.DB)
 	issueViewStore := store.NewIssueViewStore(cfg.DB)
+	searchStore := store.NewSearchStore(cfg.DB)
 	pageStore := store.NewPageStore(cfg.DB)
 	notificationStore := store.NewNotificationStore(cfg.DB)
 	issueSubscriberStore := store.NewIssueSubscriberStore(cfg.DB)
@@ -138,6 +139,7 @@ func New(cfg Config) *gin.Engine {
 	moduleSvc := service.NewModuleService(moduleStore, projectStore, workspaceStore)
 	moduleSvc.SetIssueStore(issueStore)
 	issueViewSvc := service.NewIssueViewService(issueViewStore, projectStore, workspaceStore, userFavoriteStore)
+	searchSvc := service.NewSearchService(searchStore, workspaceStore)
 	pageSvc := service.NewPageService(pageStore, projectStore, workspaceStore)
 	pageSvc.SetFavoriteStore(userFavoriteStore)
 	notificationSvc := service.NewNotificationService(notificationStore, workspaceStore, issueStore, projectStore, userStore, stateStore)
@@ -212,6 +214,7 @@ func New(cfg Config) *gin.Engine {
 	favoriteHandler := &handler.FavoriteHandler{Project: projectSvc, Favorites: userFavoriteStore}
 	stateHandler := &handler.StateHandler{State: stateSvc}
 	labelHandler := &handler.LabelHandler{Label: labelSvc}
+	searchHandler := &handler.SearchHandler{Svc: searchSvc}
 	issueHandler := &handler.IssueHandler{Issue: issueSvc}
 	issueLinkHandler := &handler.IssueLinkHandler{Issue: issueSvc}
 	attachmentHandler := &handler.AttachmentHandler{Attachment: attachmentSvc}
@@ -275,6 +278,7 @@ func New(cfg Config) *gin.Engine {
 		api.GET("/users/me/workspaces/:slug/projects/invitations/", projectHandler.ListUserProjectInvitations)
 		api.POST("/workspaces/:slug/projects/join/", projectHandler.JoinByToken)
 		api.GET("/workspaces/:slug/draft-issues/", issueHandler.ListWorkspaceDrafts)
+		api.GET("/workspaces/:slug/search/", searchHandler.Search)
 
 		api.GET("/workspaces/:slug/projects/", projectHandler.List)
 		api.POST("/workspaces/:slug/projects/", projectHandler.Create)
