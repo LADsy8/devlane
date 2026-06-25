@@ -102,6 +102,9 @@ func initPG() {
 	dsn := cfg.DSN()
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
+		// Mirror production (database.New): translate driver errors to GORM
+		// sentinels so tests exercise the same error-handling paths.
+		TranslateError: true,
 	})
 	if err != nil {
 		pgErr = fmt.Errorf("open gorm: %w", err)
