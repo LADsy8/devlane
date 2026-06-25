@@ -4,7 +4,8 @@ import { Avatar, Badge, Button, Modal } from '../components/ui';
 import { UpdateCycleModal } from '../components/UpdateCycleModal';
 import { workspaceService } from '../services/workspaceService';
 import { projectService } from '../services/projectService';
-import { cycleService } from '../services/cycleService';
+import { cycleService, type CycleProgressResponse } from '../services/cycleService';
+import { CycleBurndownChart } from '../components/cycles/CycleBurndownChart';
 import { issueService } from '../services/issueService';
 import { stateService } from '../services/stateService';
 import { labelService } from '../services/labelService';
@@ -314,6 +315,10 @@ export function CyclesPage() {
   const [issues, setIssues] = useState<IssueApiResponse[]>([]);
   const [states, setStates] = useState<StateApiResponse[]>([]);
   const [labels, setLabels] = useState<LabelApiResponse[]>([]);
+  const [activeCycleProgress, setActiveCycleProgress] = useState<{
+    cycleId: string;
+    progress: CycleProgressResponse;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCycleExpanded, setActiveCycleExpanded] = useState(true);
   const [activeCycleTab, setActiveCycleTab] = useState<'priority' | 'assignees' | 'labels'>(
@@ -559,6 +564,30 @@ export function CyclesPage() {
     if (!activeCycle) return [];
     return issues.filter((i) => i.cycle_ids?.includes(activeCycle.id));
   }, [issues, activeCycle]);
+
+  // Fetch the active cycle's progress snapshot (for the burndown chart). The
+  // result is keyed by cycle id so a stale snapshot from a previously active
+  // cycle is ignored during render (see progressForActive).
+  const activeCycleId = activeCycle?.id;
+  useEffect(() => {
+    if (!workspaceSlug || !projectId || !activeCycleId) return;
+    let cancelled = false;
+    cycleService
+      .getProgress(workspaceSlug, projectId, activeCycleId)
+      .then((snap) => {
+        if (!cancelled) setActiveCycleProgress({ cycleId: activeCycleId, progress: snap });
+      })
+      .catch(() => {
+        if (!cancelled) setActiveCycleProgress(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceSlug, projectId, activeCycleId]);
+  const activeBurndownChart =
+    activeCycleProgress && activeCycleId && activeCycleProgress.cycleId === activeCycleId
+      ? activeCycleProgress.progress.distribution?.completion_chart
+      : undefined;
 
   const getIssueCount = (cycleId: string) => cycles.find((c) => c.id === cycleId)?.issue_count ?? 0;
   const getProgress = (c: CycleApiResponse) => {
@@ -1090,11 +1119,13 @@ export function CyclesPage() {
                   </span>
                 </div>
                 {activeCycleProgressStats.total > 0 ? (
-                  <div className="mt-4 flex flex-col items-center justify-center py-6">
-                    <IconActivity />
-                    <p className="mt-2 text-center text-sm text-(--txt-tertiary)">
-                      Burndown chart coming soon.
-                    </p>
+                  <div className="mt-4">
+                    <CycleBurndownChart
+                      completionChart={activeBurndownChart ?? {}}
+                      total={activeCycleProgressStats.total}
+                      startDate={activeCycle.start_date}
+                      endDate={activeCycle.end_date}
+                    />
                   </div>
                 ) : (
                   <div className="mt-4 flex flex-col items-center justify-center py-6">
