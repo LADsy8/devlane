@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/Devlaner/devlane/api/internal/middleware"
@@ -71,12 +72,15 @@ func (h *IssueHandler) AddReaction(c *gin.Context) {
 	}
 	r, err := h.Issue.AddReaction(c.Request.Context(), slug, projectID, iid, user.ID, body.Reaction)
 	if err != nil {
-		if reactionIsNotFound(err) {
+		switch {
+		case reactionIsNotFound(err):
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
-			return
+		case errors.Is(err, service.ErrReactionExists):
+			// The user already reacted with this emoji (unique-constraint).
+			c.JSON(http.StatusConflict, gin.H{"error": "Already reacted"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add reaction"})
 		}
-		// Unique-constraint violation = the user already reacted with this emoji.
-		c.JSON(http.StatusConflict, gin.H{"error": "Already reacted"})
 		return
 	}
 	c.JSON(http.StatusCreated, r)

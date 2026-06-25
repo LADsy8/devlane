@@ -23,6 +23,10 @@ func NewDB(cfg *config.Config, log *slog.Logger) (*gorm.DB, error) {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: gormLog,
+		// Translate driver errors to GORM sentinels (e.g. gorm.ErrDuplicatedKey)
+		// so callers can distinguish a unique-constraint violation from a real
+		// failure without inspecting the raw pg error.
+		TranslateError: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)

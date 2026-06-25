@@ -14,6 +14,9 @@ import (
 
 var (
 	ErrIssueNotFound = errors.New("issue not found")
+	// ErrReactionExists is returned when a user adds an emoji they have already
+	// reacted with (the issue_reactions unique constraint).
+	ErrReactionExists = errors.New("reaction already exists")
 )
 
 // IssueService handles issue business logic.
@@ -166,6 +169,9 @@ func (s *IssueService) AddReaction(ctx context.Context, workspaceSlug string, pr
 		WorkspaceID: issue.WorkspaceID,
 	}
 	if err := s.reactions.Add(ctx, r); err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil, ErrReactionExists
+		}
 		return nil, err
 	}
 	return r, nil

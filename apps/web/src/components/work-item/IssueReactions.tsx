@@ -73,12 +73,15 @@ export function IssueReactions({
       } else {
         await issueService.addReaction(workspaceSlug, projectId, issueId, emoji);
       }
-      // Refetch — small list, simpler than reconciling locally.
-      const next = await issueService.listReactions(workspaceSlug, projectId, issueId);
-      setReactions(next ?? []);
     } catch {
       // best-effort; a missing reaction or network blip shouldn't disrupt the UX
     }
+    // Always resync after a toggle attempt so the UI reflects server truth even
+    // when the request failed (e.g. a conflict from concurrent toggles).
+    const next = await issueService
+      .listReactions(workspaceSlug, projectId, issueId)
+      .catch(() => null);
+    if (next) setReactions(next);
   };
 
   return (
@@ -104,15 +107,23 @@ export function IssueReactions({
         className="inline-flex h-6 w-6 items-center justify-center rounded-(--radius-md) text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
         onClick={() => setPickerOpen((v) => !v)}
         aria-label="Add reaction"
+        aria-haspopup="menu"
+        aria-expanded={pickerOpen}
+        aria-controls="issue-reactions-picker"
       >
         <SmilePlus className="h-3.5 w-3.5" />
       </button>
       {pickerOpen && (
-        <div className="absolute left-0 top-full z-20 mt-1 inline-flex items-center gap-0.5 rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-1.5 py-1 shadow-(--shadow-raised)">
+        <div
+          id="issue-reactions-picker"
+          role="menu"
+          className="absolute left-0 top-full z-20 mt-1 inline-flex items-center gap-0.5 rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-1.5 py-1 shadow-(--shadow-raised)"
+        >
           {QUICK_EMOJIS.map((e) => (
             <button
               key={e}
               type="button"
+              role="menuitem"
               onClick={() => void toggle(e)}
               className="inline-flex h-7 w-7 items-center justify-center rounded text-base hover:bg-(--bg-layer-1-hover)"
               aria-label={`React with ${e}`}
