@@ -112,6 +112,11 @@ export function IssueListPage() {
   );
   // Chains reorder saves so rapid drags commit in order (see handleReorder).
   const reorderChain = useRef<Promise<unknown>>(Promise.resolve());
+  // Per-issue serialization for board drag-to-column: chain PATCHes so rapid
+  // drags of the same card commit in order, and a sequence token so only the
+  // latest move's failure triggers a refetch.
+  const cardMoveChains = useRef<Map<string, Promise<void>>>(new Map());
+  const cardMoveSeq = useRef<Map<string, number>>(new Map());
   useDocumentTitle('Work items');
 
   const refetchIssues = () => {
@@ -588,16 +593,28 @@ export function IssueListPage() {
   const reorderEnabled = listDisplay.orderBy === 'manual';
 
   // Board drag-to-column: optimistically move the card's state, then persist.
+  // PATCHes for the same card are chained (commit in order); only the latest
+  // move's failure refetches, so a stale older request can't clobber a newer one.
   const handleCardMove = (issueId: string, targetStateId: string) => {
     if (!workspaceSlug || !projectId) return;
     const current = issues.find((i) => i.id === issueId);
     if (!current || current.state_id === targetStateId) return;
+    const seq = (cardMoveSeq.current.get(issueId) ?? 0) + 1;
+    cardMoveSeq.current.set(issueId, seq);
     setIssues((prev) =>
       prev.map((i) => (i.id === issueId ? { ...i, state_id: targetStateId } : i)),
     );
-    issueService
-      .update(workspaceSlug, projectId, issueId, { state_id: targetStateId })
-      .catch(() => refetchIssues());
+    const prevChain = cardMoveChains.current.get(issueId) ?? Promise.resolve();
+    const next = prevChain
+      .catch(() => {})
+      .then(() =>
+        issueService.update(workspaceSlug, projectId, issueId, { state_id: targetStateId }),
+      )
+      .then(() => undefined)
+      .catch(() => {
+        if (cardMoveSeq.current.get(issueId) === seq) refetchIssues();
+      });
+    cardMoveChains.current.set(issueId, next);
   };
 
   return (
