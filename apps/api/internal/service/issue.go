@@ -21,6 +21,8 @@ var (
 	// requested value is not an accepted priority or a state of the project.
 	ErrInvalidPriority = errors.New("invalid priority")
 	ErrInvalidState    = errors.New("invalid state for project")
+	// ErrEpicHasChildren blocks demoting an epic that still has child work items.
+	ErrEpicHasChildren = errors.New("epic has child work items")
 )
 
 // validPriorities is the accepted set of work-item priority values.
@@ -216,6 +218,44 @@ func (s *IssueService) Restore(ctx context.Context, workspaceSlug string, projec
 		return err
 	}
 	return s.is.SetArchived(ctx, issueID, false)
+}
+
+// Convert promotes a work item to an epic (clearing its parent) or demotes an
+// epic back to a work item (rejected while it still has child work items).
+func (s *IssueService) Convert(ctx context.Context, workspaceSlug string, projectID, issueID, userID uuid.UUID, toEpic bool) (*model.Issue, error) {
+	issue, err := s.issueForAccess(ctx, workspaceSlug, projectID, issueID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if issue.IsEpic == toEpic {
+		return issue, nil
+	}
+	if toEpic {
+		issue.ParentID = nil // an epic cannot itself be a child
+	} else {
+		children, err := s.is.ListIssuesByEpicID(ctx, issue.ID)
+		if err != nil {
+			return nil, err
+		}
+		if len(children) > 0 {
+			return nil, ErrEpicHasChildren
+		}
+	}
+	prev := boolStr(issue.IsEpic)
+	issue.IsEpic = toEpic
+	issue.UpdatedByID = &userID
+	if err := s.is.Update(ctx, issue); err != nil {
+		return nil, err
+	}
+	s.recordActivity(ctx, issue, userID, "is_epic", prev, boolStr(toEpic))
+	return issue, nil
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
 }
 
 // ListArchived returns archived issues for a project.
