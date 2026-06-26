@@ -118,10 +118,14 @@ export function IssueListPage() {
   // token so only the latest update's failure triggers a refetch.
   const issueUpdateChains = useRef<Map<string, Promise<void>>>(new Map());
   const issueUpdateSeq = useRef<Map<string, number>>(new Map());
-  // Latest route key, so a late drag-failure refetch can be discarded if the
-  // user has since navigated to a different project.
+  // Set when any chained update for an issue fails, so the latest update
+  // reconciles local state with the server even if it itself succeeded.
+  const issueReconcileNeeded = useRef<Map<string, boolean>>(new Map());
+  // Latest route key, so a late update-failure reconcile can be discarded if the
+  // user has since navigated to a different project. Updated in a layout effect
+  // (synchronous, pre-paint) so the guard isn't stale during a route change.
   const routeKeyRef = useRef('');
-  useEffect(() => {
+  useLayoutEffect(() => {
     routeKeyRef.current = `${workspaceSlug ?? ''}/${projectId ?? ''}`;
   }, [workspaceSlug, projectId]);
   useDocumentTitle('Work items');
@@ -605,19 +609,36 @@ export function IssueListPage() {
   // stale older request can't clobber a newer one or a different route's list.
   const persistIssueUpdate = (issueId: string, patch: IssueInlinePatch) => {
     if (!workspaceSlug || !projectId) return;
-    const routeKey = `${workspaceSlug}/${projectId}`;
+    const slug = workspaceSlug;
+    const pid = projectId;
+    const routeKey = `${slug}/${pid}`;
     const seq = (issueUpdateSeq.current.get(issueId) ?? 0) + 1;
     issueUpdateSeq.current.set(issueId, seq);
     setIssues((prev) => prev.map((i) => (i.id === issueId ? { ...i, ...patch } : i)));
     const prevChain = issueUpdateChains.current.get(issueId) ?? Promise.resolve();
     const next = prevChain
       .catch(() => {})
-      .then(() => issueService.update(workspaceSlug, projectId, issueId, patch))
-      .then(() => undefined)
-      .catch(() => {
-        if (issueUpdateSeq.current.get(issueId) === seq && routeKeyRef.current === routeKey) {
-          refetchIssues();
-        }
+      .then(() => issueService.update(slug, pid, issueId, patch))
+      .then(
+        () => undefined,
+        // Record the failure rather than reverting here — a later update in the
+        // chain (possibly to a different field) must not be lost, so we let the
+        // newest update reconcile once the chain drains.
+        () => {
+          issueReconcileNeeded.current.set(issueId, true);
+        },
+      )
+      .then(() => {
+        if (issueUpdateSeq.current.get(issueId) !== seq) return;
+        if (!issueReconcileNeeded.current.get(issueId)) return;
+        issueReconcileNeeded.current.delete(issueId);
+        if (routeKeyRef.current !== routeKey) return;
+        // Re-fetch just this issue so a rejected PATCH can't leave a stale
+        // optimistic value, without clobbering other issues' in-flight edits.
+        issueService
+          .get(slug, pid, issueId)
+          .then((fresh) => setIssues((prev) => prev.map((i) => (i.id === issueId ? fresh : i))))
+          .catch(() => {});
       });
     issueUpdateChains.current.set(issueId, next);
   };
@@ -757,7 +778,13 @@ export function IssueListPage() {
               onUpdateIssue={handleInlineUpdate}
             />
           )}
-          {layout === 'board' && <IssueLayoutBoard {...layoutProps} onCardMove={handleCardMove} />}
+          {layout === 'board' && (
+            <IssueLayoutBoard
+              {...layoutProps}
+              onCardMove={handleCardMove}
+              onUpdateIssue={handleInlineUpdate}
+            />
+          )}
           {layout === 'spreadsheet' && (
             <IssueLayoutSpreadsheet {...layoutProps} onUpdateIssue={handleInlineUpdate} />
           )}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Calendar } from 'lucide-react';
 import { IssuePRBadge } from '../IssuePRBadge';
 import {
   DueDateCell,
@@ -8,8 +9,20 @@ import {
   StatePill,
   WorkItemAvatarGroup,
 } from '../IssueRowCells';
-import { membersFromAssigneeIds } from '../../../lib/issueRowHelpers';
-import type { IssueApiResponse, LabelApiResponse } from '../../../api/types';
+import {
+  EditableStateCell,
+  EditablePriorityCell,
+  EditableAssigneeCell,
+  EditableLabelCell,
+} from '../EditableCells';
+import { DatePickerTrigger } from '../DatePickerTrigger';
+import { isOverdue, membersFromAssigneeIds } from '../../../lib/issueRowHelpers';
+import type {
+  IssueApiResponse,
+  LabelApiResponse,
+  StateApiResponse,
+  WorkspaceMemberApiResponse,
+} from '../../../api/types';
 import type { Priority } from '../../../types';
 import {
   issueDisplayId,
@@ -37,6 +50,7 @@ export function IssueLayoutBoard({
   projectsById,
   groupByStateGroup,
   onCardMove,
+  onUpdateIssue,
 }: IssueLayoutProps) {
   const labelById = useMemo(() => new Map(labels.map((l) => [l.id, l])), [labels]);
   const stateById = useMemo(() => new Map(states.map((s) => [s.id, s])), [states]);
@@ -45,6 +59,7 @@ export function IssueLayoutBoard({
   const dndEnabled = Boolean(onCardMove);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
+  const [openCell, setOpenCell] = useState<string | null>(null);
 
   // Map a column to the concrete state an issue should land in. For per-state
   // columns the key is already a state id; for grouped columns we pick a state
@@ -142,6 +157,12 @@ export function IssueLayoutBoard({
         setDraggingId(null);
         setDropKey(null);
       }}
+      allStates={states}
+      allLabels={labels}
+      allMembers={members}
+      onUpdateIssue={onUpdateIssue}
+      openId={openCell}
+      onOpenCell={setOpenCell}
     />
   );
 
@@ -260,6 +281,29 @@ interface BoardCardProps {
   isDragging?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
+  allStates: StateApiResponse[];
+  allLabels: LabelApiResponse[];
+  allMembers: WorkspaceMemberApiResponse[];
+  onUpdateIssue?: IssueLayoutProps['onUpdateIssue'];
+  openId: string | null;
+  onOpenCell: (id: string | null) => void;
+}
+
+// Wraps an interactive control inside the card's navigating Link so clicking it
+// edits in place instead of opening the issue, and doesn't start a card drag.
+function CellGuard({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      {children}
+    </span>
+  );
 }
 
 function BoardCard({
@@ -276,8 +320,15 @@ function BoardCard({
   isDragging,
   onDragStart,
   onDragEnd,
+  allStates,
+  allLabels,
+  allMembers,
+  onUpdateIssue,
+  openId,
+  onOpenCell,
 }: BoardCardProps) {
   const displayId = issueDisplayId(issue, project, projectsById);
+  const editable = Boolean(onUpdateIssue);
   return (
     <Link
       to={href}
@@ -293,7 +344,19 @@ function BoardCard({
       } ${isDragging ? 'opacity-50' : ''}`}
     >
       <div className="flex items-start gap-2">
-        <PriorityIcon priority={issue.priority as Priority | null | undefined} />
+        {editable && onUpdateIssue ? (
+          <CellGuard>
+            <EditablePriorityCell
+              issueId={issue.id}
+              priority={issue.priority}
+              openId={openId}
+              onOpen={onOpenCell}
+              onChange={(priority) => onUpdateIssue(issue.id, { priority })}
+            />
+          </CellGuard>
+        ) : (
+          <PriorityIcon priority={issue.priority as Priority | null | undefined} />
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 text-[11px] text-(--txt-tertiary)">
             <span className="font-medium text-(--txt-accent-primary)">{displayId}</span>
@@ -306,13 +369,69 @@ function BoardCard({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {labels.length > 0 && <LabelChips labels={labels} max={2} />}
-        <DueDateCell issue={issue} state={state} now={now} />
-        {state && <StatePill state={state} />}
+        {editable && onUpdateIssue ? (
+          <>
+            {state && (
+              <CellGuard>
+                <EditableStateCell
+                  issueId={issue.id}
+                  state={state}
+                  states={allStates}
+                  openId={openId}
+                  onOpen={onOpenCell}
+                  onChange={(state_id) => onUpdateIssue(issue.id, { state_id })}
+                />
+              </CellGuard>
+            )}
+            <CellGuard>
+              <DatePickerTrigger
+                label="Due date"
+                icon={<Calendar />}
+                value={issue.target_date ?? ''}
+                placeholder="Due"
+                className={
+                  isOverdue(issue.target_date, state?.group, now)
+                    ? 'border-(--border-danger-strong) text-(--txt-danger-primary)'
+                    : undefined
+                }
+                onChange={(v) => onUpdateIssue(issue.id, { target_date: v || null })}
+              />
+            </CellGuard>
+            <CellGuard>
+              <EditableLabelCell
+                issueId={issue.id}
+                labelIds={issue.label_ids ?? []}
+                labels={allLabels}
+                openId={openId}
+                onOpen={onOpenCell}
+                onChange={(label_ids) => onUpdateIssue(issue.id, { label_ids })}
+              />
+            </CellGuard>
+          </>
+        ) : (
+          <>
+            {labels.length > 0 && <LabelChips labels={labels} max={2} />}
+            <DueDateCell issue={issue} state={state} now={now} />
+            {state && <StatePill state={state} />}
+          </>
+        )}
       </div>
 
       <div className="mt-2 flex items-center justify-between">
-        <WorkItemAvatarGroup members={assignees} max={3} />
+        {editable && onUpdateIssue ? (
+          <CellGuard>
+            <EditableAssigneeCell
+              issueId={issue.id}
+              assigneeIds={issue.assignee_ids ?? []}
+              members={allMembers}
+              openId={openId}
+              onOpen={onOpenCell}
+              onChange={(assignee_ids) => onUpdateIssue(issue.id, { assignee_ids })}
+            />
+          </CellGuard>
+        ) : (
+          <WorkItemAvatarGroup members={assignees} max={3} />
+        )}
       </div>
     </Link>
   );

@@ -4,7 +4,7 @@ import { Avatar } from '../ui';
 import { cn, getImageUrl } from '../../lib/utils';
 import type { IssueApiResponse, LabelApiResponse, StateApiResponse } from '../../api/types';
 import type { Priority } from '../../types';
-import type { MemberLite } from '../../lib/issueRowHelpers';
+import { isOverdue, type MemberLite } from '../../lib/issueRowHelpers';
 
 export type { MemberLite };
 
@@ -256,14 +256,10 @@ interface DueDateCellProps {
 }
 
 export function DueDateCell({ issue, state, now }: DueDateCellProps) {
-  const overdue = useMemo(() => {
-    if (!issue.target_date) return false;
-    const t = Date.parse(issue.target_date);
-    if (Number.isNaN(t)) return false;
-    const stateGroup = state?.group ?? '';
-    if (stateGroup === 'completed' || stateGroup === 'cancelled') return false;
-    return t < now - 24 * 3600 * 1000;
-  }, [issue.target_date, state?.group, now]);
+  const overdue = useMemo(
+    () => isOverdue(issue.target_date, state?.group, now),
+    [issue.target_date, state?.group, now],
+  );
 
   if (!issue.target_date) {
     return (

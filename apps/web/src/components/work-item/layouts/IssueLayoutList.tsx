@@ -16,7 +16,7 @@ import {
   EditableLabelCell,
 } from '../EditableCells';
 import { DatePickerTrigger } from '../DatePickerTrigger';
-import { membersFromAssigneeIds } from '../../../lib/issueRowHelpers';
+import { isOverdue, membersFromAssigneeIds } from '../../../lib/issueRowHelpers';
 import { cn } from '../../../lib/utils';
 import type { IssueApiResponse, LabelApiResponse } from '../../../api/types';
 import type { Priority } from '../../../types';
@@ -256,6 +256,11 @@ export function IssueLayoutList({
                 icon={<Calendar />}
                 value={issue.target_date ?? ''}
                 placeholder="Due"
+                className={
+                  isOverdue(issue.target_date, issueState?.group, now)
+                    ? 'border-(--border-danger-strong) text-(--txt-danger-primary)'
+                    : undefined
+                }
                 onChange={(v) => onUpdateIssue(issue.id, { target_date: v || null })}
               />
             ) : (

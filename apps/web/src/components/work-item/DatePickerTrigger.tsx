@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { cn } from '../../lib/utils';
 
 /* eslint-disable react-refresh/only-export-components -- formatDateForDisplay shared util; keep in same file for future use */
 export function formatDateForDisplay(isoDate: string): string {
@@ -17,6 +18,8 @@ export interface DatePickerTriggerProps {
   onChange: (value: string) => void;
   placeholder: string;
   compact?: boolean;
+  /** Extra classes for the trigger container (e.g. an overdue tone). */
+  className?: string;
 }
 
 export function DatePickerTrigger({
@@ -26,12 +29,18 @@ export function DatePickerTrigger({
   onChange,
   placeholder,
   compact: _compact = true, // eslint-disable-line @typescript-eslint/no-unused-vars -- kept for future compact layout
+  className,
 }: DatePickerTriggerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const displayValue = value ? formatDateForDisplay(value) : '';
 
   return (
-    <div className="relative inline-flex min-w-0 shrink-0 items-center gap-1 rounded border border-(--border-subtle) bg-(--bg-layer-2) px-1.5 py-1 text-xs text-(--txt-secondary) [&_svg]:size-3">
+    <div
+      className={cn(
+        'relative inline-flex min-w-0 shrink-0 items-center gap-1 rounded border border-(--border-subtle) bg-(--bg-layer-2) px-1.5 py-1 text-xs text-(--txt-secondary) [&_svg]:size-3',
+        className,
+      )}
+    >
       <span className="shrink-0 text-(--txt-icon-tertiary)">{icon}</span>
       <span className="truncate">{displayValue || placeholder}</span>
       <input
