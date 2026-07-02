@@ -74,7 +74,7 @@ func (s *RecentVisitService) ListWithDetails(ctx context.Context, workspaceSlug 
 		case "issue":
 			if v.EntityIdentifier != nil {
 				issue, err := s.issueStore.GetByID(ctx, *v.EntityIdentifier)
-				if err == nil {
+				if err == nil && issue.WorkspaceID == v.WorkspaceID {
 					item.DisplayTitle = issue.Name
 					proj, _ := s.projectStore.GetByID(ctx, issue.ProjectID)
 					if proj != nil {
@@ -85,7 +85,7 @@ func (s *RecentVisitService) ListWithDetails(ctx context.Context, workspaceSlug 
 		case "project":
 			if v.EntityIdentifier != nil {
 				proj, err := s.projectStore.GetByID(ctx, *v.EntityIdentifier)
-				if err == nil {
+				if err == nil && proj.WorkspaceID == v.WorkspaceID {
 					item.DisplayTitle = proj.Name
 					if proj.Identifier != "" {
 						item.DisplayIdentifier = proj.Identifier
@@ -95,7 +95,7 @@ func (s *RecentVisitService) ListWithDetails(ctx context.Context, workspaceSlug 
 		case "page":
 			if v.EntityIdentifier != nil {
 				page, err := s.pageStore.GetByID(ctx, *v.EntityIdentifier)
-				if err == nil {
+				if err == nil && page.WorkspaceID == v.WorkspaceID {
 					item.DisplayTitle = page.Name
 				}
 			}
@@ -110,6 +110,31 @@ func (s *RecentVisitService) RecordVisit(ctx context.Context, workspaceSlug stri
 	workspaceID, err := s.ensureWorkspaceAccess(ctx, workspaceSlug, userID)
 	if err != nil {
 		return err
+	}
+	if projectID != nil {
+		ok, _ := s.projectStore.IsInWorkspace(ctx, *projectID, workspaceID)
+		if !ok {
+			return ErrProjectNotFound
+		}
+	}
+	if entityIdentifier != nil {
+		switch entityName {
+		case "issue":
+			issue, err := s.issueStore.GetByID(ctx, *entityIdentifier)
+			if err != nil || issue.WorkspaceID != workspaceID {
+				return ErrIssueNotFound
+			}
+		case "project":
+			ok, _ := s.projectStore.IsInWorkspace(ctx, *entityIdentifier, workspaceID)
+			if !ok {
+				return ErrProjectNotFound
+			}
+		case "page":
+			page, err := s.pageStore.GetByID(ctx, *entityIdentifier)
+			if err != nil || page.WorkspaceID != workspaceID {
+				return ErrPageNotFound
+			}
+		}
 	}
 	return s.visitStore.Upsert(ctx, workspaceID, userID, entityName, entityIdentifier, projectID)
 }

@@ -61,7 +61,8 @@ func (h *RecentVisitHandler) Record(c *gin.Context) {
 		return
 	}
 	if err := h.Recent.RecordVisit(c.Request.Context(), slug, user.ID, body.EntityName, body.EntityIdentifier, body.ProjectID); err != nil {
-		if err == service.ErrWorkspaceNotFound || err == service.ErrWorkspaceForbidden {
+		if err == service.ErrWorkspaceNotFound || err == service.ErrWorkspaceForbidden ||
+			err == service.ErrIssueNotFound || err == service.ErrProjectNotFound || err == service.ErrPageNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 			return
 		}
