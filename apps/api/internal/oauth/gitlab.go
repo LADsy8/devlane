@@ -62,6 +62,12 @@ func (g *GitLabProvider) GetUserInfo(ctx context.Context, token *TokenData) (*Us
 	if err != nil {
 		return nil, err
 	}
+	// Refuse an unconfirmed email: GitLab lets a user set an arbitrary address
+	// before confirming it, so an unconfirmed email must not be linked to an
+	// existing account (mirrors the Google/GitHub verified-email checks).
+	if strVal(resp, "confirmed_at") == "" {
+		return nil, ErrEmailNotVerified
+	}
 	return &UserInfo{
 		Email:      strVal(resp, "email"),
 		FirstName:  strVal(resp, "name"),
