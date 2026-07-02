@@ -227,6 +227,11 @@ func (s *ProjectService) UpdateMemberRole(ctx context.Context, workspaceSlug str
 	if m.MemberID != nil && *m.MemberID == wrk.OwnerID && userID != wrk.OwnerID {
 		return nil, ErrProjectForbidden
 	}
+	// Only the workspace owner may act on a member who already holds a
+	// higher role than the caller (e.g. a delegated project Owner).
+	if userID != wrk.OwnerID && m.Role > callerRole {
+		return nil, ErrProjectForbidden
+	}
 	// Cannot grant a role above your own, and only the workspace owner may
 	// grant project Owner.
 	if role > callerRole || (role >= model.RoleOwner && userID != wrk.OwnerID) {
@@ -244,7 +249,8 @@ func (s *ProjectService) DeleteMember(ctx context.Context, workspaceSlug string,
 	if err != nil {
 		return err
 	}
-	if err := s.requireProjectAdmin(ctx, p.WorkspaceID, p.ID, userID); err != nil {
+	callerRole, err := s.projectCallerRole(ctx, p.WorkspaceID, p.ID, userID)
+	if err != nil {
 		return err
 	}
 	wrk, err := s.ws.GetByID(ctx, p.WorkspaceID)
@@ -257,6 +263,11 @@ func (s *ProjectService) DeleteMember(ctx context.Context, workspaceSlug string,
 	}
 	// The workspace owner's project membership cannot be removed by anyone.
 	if m.MemberID != nil && *m.MemberID == wrk.OwnerID {
+		return ErrProjectForbidden
+	}
+	// Only the workspace owner may remove a member who already holds a
+	// higher role than the caller (e.g. a delegated project Owner).
+	if userID != wrk.OwnerID && m.Role > callerRole {
 		return ErrProjectForbidden
 	}
 	if m.MemberID != nil {

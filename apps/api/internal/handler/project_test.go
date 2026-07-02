@@ -208,6 +208,34 @@ func TestProject_UpdateMember_CannotChangeWorkspaceOwnersMembership(t *testing.T
 	require.Equal(t, http.StatusNotFound, delRR.Code, "body=%s", delRR.Body.String())
 }
 
+func TestProject_UpdateMember_CannotActOnDelegatedOwner(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	owner := testutil.CreateUser(t, ts.DB)
+	w := testutil.CreateWorkspace(t, ts.DB, owner.ID)
+	lead := testutil.CreateUser(t, ts.DB)
+	testutil.AddWorkspaceMember(t, ts.DB, w.ID, lead.ID, testutil.RoleMember)
+	p := testutil.CreateProject(t, ts.DB, w.ID, lead.ID)
+	// A non-workspace-owner member was previously delegated project Owner by
+	// the actual workspace owner. A project Admin (lower role) must not be
+	// able to demote or remove them.
+	delegatedOwner := testutil.CreateUser(t, ts.DB)
+	testutil.AddWorkspaceMember(t, ts.DB, w.ID, delegatedOwner.ID, testutil.RoleMember)
+	delegatedOwnerMembership := testutil.AddProjectMember(t, ts.DB, p.ID, w.ID, delegatedOwner.ID, testutil.RoleOwner)
+
+	projectAdmin := testutil.CreateUser(t, ts.DB)
+	testutil.AddWorkspaceMember(t, ts.DB, w.ID, projectAdmin.ID, testutil.RoleMember)
+	testutil.AddProjectMember(t, ts.DB, p.ID, w.ID, projectAdmin.ID, testutil.RoleAdmin)
+
+	session := testutil.LoginAs(t, ts.DB, projectAdmin)
+	rr := ts.PATCH("/api/workspaces/"+w.Slug+"/projects/"+p.ID.String()+"/members/"+delegatedOwnerMembership.ID.String()+"/", map[string]any{
+		"role": testutil.RoleMember,
+	}, session)
+	require.Equal(t, http.StatusNotFound, rr.Code, "body=%s", rr.Body.String())
+
+	delRR := ts.DELETE("/api/workspaces/"+w.Slug+"/projects/"+p.ID.String()+"/members/"+delegatedOwnerMembership.ID.String()+"/", session)
+	require.Equal(t, http.StatusNotFound, delRR.Code, "body=%s", delRR.Body.String())
+}
+
 func TestProject_UpdateMember_WorkspaceOwnerCanGrantOwner(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 	owner := testutil.CreateUser(t, ts.DB)
