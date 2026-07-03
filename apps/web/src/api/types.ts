@@ -745,7 +745,11 @@ export interface PageVersionApiResponse {
  * Reason a notification was created. Server-set; drives how the inbox row renders.
  */
 export type NotificationSender =
-  'assigned' | 'mentioned' | 'commented' | 'state_changed' | 'subscribed';
+  | 'assigned'
+  | 'mentioned'
+  | 'commented'
+  | 'state_changed'
+  | 'subscribed';
 
 /** Structured payload the API attaches to every notification — denormalised so
  * the inbox can render N rows without N round-trips. Field set varies by sender. */
