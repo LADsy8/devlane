@@ -1,12 +1,14 @@
+# Local dev infra only — default credentials below, ports bound to loopback
+# so they're not reachable from other hosts on the network. Not for production use.
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: postgres      
-      POSTGRES_PASSWORD: postgres  
-      POSTGRES_DB: devlane         
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: devlane
     ports:
-      - "15432:5432"               
+      - "127.0.0.1:15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +20,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"                
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -30,11 +32,11 @@ services:
   rabbitmq:
     image: rabbitmq:3-management-alpine
     environment:
-      RABBITMQ_DEFAULT_USER: guest   
-      RABBITMQ_DEFAULT_PASS: guest   
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     ports:
-      - "5672:5672"    
-      - "15672:15672"  
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -47,11 +49,11 @@ services:
     image: minio/minio:latest
     command: server --console-address ":9001" /data
     environment:
-      MINIO_ROOT_USER: minioadmin     
-      MINIO_ROOT_PASSWORD: minioadmin 
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"   
-      - "9001:9001"   
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - minio_data:/data
     healthcheck:
