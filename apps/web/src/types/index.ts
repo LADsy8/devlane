@@ -10,6 +10,7 @@ export interface User {
   name: string;
   avatarUrl?: string | null;
   coverImageUrl?: string | null;
+  isInstanceAdmin?: boolean;
 }
 
 export interface Workspace {

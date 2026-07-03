@@ -27,6 +27,10 @@ var allowedImageTypes = map[string]bool{
 	"image/webp": true,
 }
 
+// maxUploadSize caps generic uploads (avatars/covers/logos) to a sane size
+// for profile-type images; the larger issue-attachment flow has its own cap.
+const maxUploadSize = 5 << 20 // 5 MiB
+
 // Upload accepts a multipart file and uploads it to MinIO.
 // POST /api/upload
 // Form: file (required). Returns { "url": "/api/files/uploads/..." }.
@@ -44,6 +48,10 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided", "detail": err.Error()})
+		return
+	}
+	if file.Size > maxUploadSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File too large. Maximum size is 5MB."})
 		return
 	}
 
@@ -117,5 +125,7 @@ func (h *UploadHandler) ServeFile(c *gin.Context) {
 	}
 
 	c.Header("Content-Type", info.ContentType)
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Disposition", "inline")
 	c.DataFromReader(http.StatusOK, info.Size, info.ContentType, obj, nil)
 }

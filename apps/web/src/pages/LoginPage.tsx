@@ -14,7 +14,7 @@ type AuthMode = 'sign-in' | 'sign-up';
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, setUserFromApi } = useAuth();
+  const { login, refreshUser } = useAuth();
 
   const state = location.state as {
     from?: { pathname?: string; search?: string };
@@ -182,12 +182,12 @@ export function LoginPage() {
       }
       setIsSubmitting(true);
       try {
-        const user = await authService.verifyMagicCode({
+        await authService.verifyMagicCode({
           email,
           code,
           ...(inviteToken ? { invite_token: inviteToken } : {}),
         });
-        setUserFromApi(user);
+        await refreshUser();
         navigate(returnPath, { replace: true });
       } catch (err: unknown) {
         setError(getApiErrorMessage(err) || 'Invalid or expired code.');
@@ -195,7 +195,7 @@ export function LoginPage() {
         setIsSubmitting(false);
       }
     },
-    [magicCode, email, inviteToken, setUserFromApi, navigate, returnPath],
+    [magicCode, email, inviteToken, refreshUser, navigate, returnPath],
   );
 
   const goBackToEmail = useCallback(() => {

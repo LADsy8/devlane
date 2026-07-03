@@ -178,6 +178,21 @@ func TestAuth_Me_ReturnsUser(t *testing.T) {
 	body := testutil.MustJSONMap(t, rr)
 	assert.Equal(t, "me@test.local", body["email"])
 	assert.Equal(t, user.ID.String(), body["id"])
+	assert.Equal(t, false, body["is_instance_admin"])
+}
+
+// TestAuth_Me_IsInstanceAdminTrueForAdmin proves /api/users/me/ reports
+// is_instance_admin: true for an actual instance admin (#163's frontend fix
+// gates the instance-admin UI on this field).
+func TestAuth_Me_IsInstanceAdminTrueForAdmin(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	user := testutil.CreateUser(t, ts.DB)
+	testutil.SeedInstanceAdmin(t, ts.DB, user)
+	session := testutil.LoginAs(t, ts.DB, user)
+
+	rr := ts.GET("/api/users/me/", session)
+	require.Equal(t, http.StatusOK, rr.Code, "body=%s", rr.Body.String())
+	assert.Equal(t, true, testutil.MustJSONMap(t, rr)["is_instance_admin"])
 }
 
 func TestAuth_UpdateMe_PatchProfile(t *testing.T) {
@@ -301,6 +316,97 @@ func TestAuth_Tokens_RequiresAuth(t *testing.T) {
 
 	rr := ts.GET("/api/users/me/tokens/", "")
 	require.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
+// TestAuth_ApiToken_AuthenticatesRequests proves an API token created via
+// the tokens endpoint actually authenticates requests (the bug in #162 was
+// that tokens were issued but never accepted by RequireAuth).
+func TestAuth_ApiToken_AuthenticatesRequests(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	user := testutil.CreateUser(t, ts.DB)
+	session := testutil.LoginAs(t, ts.DB, user)
+
+	rr := ts.POST("/api/users/me/tokens/", map[string]any{"label": "ci-token"}, session)
+	require.Equal(t, http.StatusCreated, rr.Code, "body=%s", rr.Body.String())
+	plainToken, _ := testutil.MustJSONMap(t, rr)["token"].(string)
+	require.NotEmpty(t, plainToken)
+
+	rr2 := ts.DoWithHeaders(http.MethodGet, "/api/users/me/", nil, http.Header{
+		"Authorization": []string{"Bearer " + plainToken},
+	})
+	require.Equal(t, http.StatusOK, rr2.Code, "body=%s", rr2.Body.String())
+	assert.Equal(t, user.ID.String(), testutil.MustJSONMap(t, rr2)["id"])
+}
+
+// TestAuth_ApiToken_ValidEvenWithStaleCookiePresent proves a stale/invalid
+// session cookie sent alongside a valid API token Bearer header doesn't mask
+// the token (a bug caught in code review: an if/else-if between cookie and
+// bearer meant any cookie, even an invalid one, skipped the bearer check).
+func TestAuth_ApiToken_ValidEvenWithStaleCookiePresent(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	user := testutil.CreateUser(t, ts.DB)
+	session := testutil.LoginAs(t, ts.DB, user)
+
+	rr := ts.POST("/api/users/me/tokens/", map[string]any{"label": "ci-token"}, session)
+	require.Equal(t, http.StatusCreated, rr.Code, "body=%s", rr.Body.String())
+	plainToken, _ := testutil.MustJSONMap(t, rr)["token"].(string)
+	require.NotEmpty(t, plainToken)
+
+	rr2 := ts.DoWithHeaders(http.MethodGet, "/api/users/me/", nil, http.Header{
+		"Authorization": []string{"Bearer " + plainToken},
+		"Cookie":        []string{"session_id=this-is-not-a-real-session"},
+	})
+	require.Equal(t, http.StatusOK, rr2.Code, "body=%s", rr2.Body.String())
+	assert.Equal(t, user.ID.String(), testutil.MustJSONMap(t, rr2)["id"])
+}
+
+// TestAuth_ApiToken_RevokedRejected proves a revoked token no longer
+// authenticates.
+func TestAuth_ApiToken_RevokedRejected(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	user := testutil.CreateUser(t, ts.DB)
+	session := testutil.LoginAs(t, ts.DB, user)
+
+	rr := ts.POST("/api/users/me/tokens/", map[string]any{"label": "ci-token"}, session)
+	require.Equal(t, http.StatusCreated, rr.Code, "body=%s", rr.Body.String())
+	createdBody := testutil.MustJSONMap(t, rr)
+	plainToken, _ := createdBody["token"].(string)
+	require.NotEmpty(t, plainToken)
+
+	listRR := ts.GET("/api/users/me/tokens/", session)
+	tokens, _ := testutil.MustJSONMap(t, listRR)["tokens"].([]any)
+	require.Len(t, tokens, 1)
+	tokenID, _ := tokens[0].(map[string]any)["id"].(string)
+	require.NotEmpty(t, tokenID)
+
+	revokeRR := ts.DELETE("/api/users/me/tokens/"+tokenID+"/", session)
+	require.Equal(t, http.StatusNoContent, revokeRR.Code)
+
+	rr2 := ts.DoWithHeaders(http.MethodGet, "/api/users/me/", nil, http.Header{
+		"Authorization": []string{"Bearer " + plainToken},
+	})
+	require.Equal(t, http.StatusUnauthorized, rr2.Code, "body=%s", rr2.Body.String())
+}
+
+// TestAuth_ApiToken_DeactivatedUserRejected proves a deactivated user's
+// still-valid API token is rejected, mirroring the #155 protection for
+// cookie sessions.
+func TestAuth_ApiToken_DeactivatedUserRejected(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	user := testutil.CreateUser(t, ts.DB)
+	session := testutil.LoginAs(t, ts.DB, user)
+
+	rr := ts.POST("/api/users/me/tokens/", map[string]any{"label": "ci-token"}, session)
+	require.Equal(t, http.StatusCreated, rr.Code, "body=%s", rr.Body.String())
+	plainToken, _ := testutil.MustJSONMap(t, rr)["token"].(string)
+	require.NotEmpty(t, plainToken)
+
+	require.NoError(t, ts.DB.Exec("UPDATE users SET is_active = false WHERE id = ?", user.ID).Error)
+
+	rr2 := ts.DoWithHeaders(http.MethodGet, "/api/users/me/", nil, http.Header{
+		"Authorization": []string{"Bearer " + plainToken},
+	})
+	require.Equal(t, http.StatusUnauthorized, rr2.Code, "body=%s", rr2.Body.String())
 }
 
 func TestAuth_ForgotPassword_NoSMTPReturns503(t *testing.T) {

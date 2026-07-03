@@ -32,6 +32,7 @@ type AuthHandler struct {
 	Ws                *store.WorkspaceStore
 	NotifPrefs        *store.UserNotificationPreferenceStore
 	ApiTokens         *store.ApiTokenStore
+	InstanceAdmins    *store.InstanceAdminStore
 	Queue             *queue.Publisher
 	Redis             *redis.Client
 	MagicCodeSecret   string
@@ -120,18 +121,34 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 			return
 		}
 	}
-	sessionKey, user, err := h.Auth.SignIn(c.Request.Context(), auth.SignInRequest{Email: req.Email, Password: req.Password})
+	ctx := c.Request.Context()
+	emailNorm := strings.ToLower(strings.TrimSpace(req.Email))
+	signinFailKey := redis.PrefixRateLimit + "signinacctfail:" + emailNorm
+	if h.Redis != nil {
+		failCount, err := h.Redis.Count(ctx, signinFailKey)
+		if err == nil && failCount >= 10 {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many failed sign-in attempts for this account, please try again later"})
+			return
+		}
+	}
+	sessionKey, user, err := h.Auth.SignIn(ctx, auth.SignInRequest{Email: req.Email, Password: req.Password})
 	if err != nil {
 		if errors.Is(err, auth.ErrUserDeactivated) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Your account has been deactivated. Please contact the administrator.", "error_code": "USER_ACCOUNT_DEACTIVATED"})
 			return
 		}
 		if errors.Is(err, auth.ErrInvalidCredentials) {
+			if h.Redis != nil {
+				_, _ = h.Redis.Allow(ctx, signinFailKey, 10, 15*time.Minute)
+			}
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Sign in failed"})
 		return
+	}
+	if h.Redis != nil {
+		_ = h.Redis.Delete(ctx, signinFailKey)
 	}
 	setSessionCookie(c, sessionKey)
 	c.JSON(http.StatusOK, userResponse(user))
@@ -223,7 +240,12 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
 		return
 	}
-	c.JSON(http.StatusOK, userResponse(user))
+	resp := userResponse(user)
+	if h.InstanceAdmins != nil {
+		isAdmin, _ := h.InstanceAdmins.IsAdmin(c.Request.Context(), user.ID)
+		resp["is_instance_admin"] = isAdmin
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // UpdateMeRequest is the body for PATCH /api/users/me/
@@ -884,6 +906,19 @@ func (h *AuthHandler) MagicCodeVerify(c *gin.Context) {
 		return
 	}
 
+	// Failed-verify attempts are tracked on a key independent of the code's
+	// own TTL/Attempts, so requesting a new code does not reset this lockout.
+	failCount, err := h.Redis.MagicCodeVerifyFailCount(ctx, body.Email)
+	if err != nil {
+		h.log().Error("magic code verify-fail count", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Verification failed"})
+		return
+	}
+	if failCount >= redis.MagicCodeVerifyFailMax {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many incorrect attempts. Please request a new code later."})
+		return
+	}
+
 	stored, err := h.Redis.GetMagicCodeLogin(ctx, body.Email)
 	if err != nil {
 		h.log().Error("magic code redis get", "error", err)
@@ -898,6 +933,7 @@ func (h *AuthHandler) MagicCodeVerify(c *gin.Context) {
 	tryMAC := auth.MagicCodeHMAC(h.MagicCodeSecret, body.Email, body.Code)
 	if subtle.ConstantTimeCompare([]byte(stored.CodeMAC), []byte(tryMAC)) != 1 {
 		_ = h.Redis.BumpMagicCodeLoginFailedAttempt(ctx, body.Email)
+		_ = h.Redis.BumpMagicCodeVerifyFail(ctx, body.Email)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired code"})
 		return
 	}
@@ -909,6 +945,7 @@ func (h *AuthHandler) MagicCodeVerify(c *gin.Context) {
 	}
 
 	_ = h.Redis.DeleteMagicCodeLogin(ctx, body.Email)
+	_ = h.Redis.ResetMagicCodeVerifyFail(ctx, body.Email)
 
 	if stored.IsSignup {
 		sessionKey, user, err := h.Auth.SignUpMagic(ctx, body.Email, body.FirstName, body.LastName)

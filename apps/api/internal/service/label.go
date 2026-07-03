@@ -22,39 +22,39 @@ func NewLabelService(ls *store.LabelStore, ps *store.ProjectStore, ws *store.Wor
 	return &LabelService{ls: ls, ps: ps, ws: ws}
 }
 
-func (s *LabelService) ensureProjectAccess(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID) error {
+func (s *LabelService) ensureProjectAccess(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID) (uuid.UUID, error) {
 	wrk, err := s.ws.GetBySlug(ctx, workspaceSlug)
 	if err != nil {
-		return ErrProjectForbidden
+		return uuid.Nil, ErrProjectForbidden
 	}
 	ok, _ := s.ws.IsMember(ctx, wrk.ID, userID)
 	if !ok {
-		return ErrProjectForbidden
+		return uuid.Nil, ErrProjectForbidden
 	}
 	inWorkspace, _ := s.ps.IsInWorkspace(ctx, projectID, wrk.ID)
 	if !inWorkspace {
-		return ErrProjectNotFound
+		return uuid.Nil, ErrProjectNotFound
 	}
-	return nil
+	return wrk.ID, nil
 }
 
 func (s *LabelService) ListByProject(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID) ([]model.Label, error) {
-	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
+	if _, err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
 		return nil, err
 	}
 	return s.ls.ListByProjectID(ctx, projectID)
 }
 
 func (s *LabelService) Create(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID, name, color string) (*model.Label, error) {
-	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
+	workspaceID, err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID)
+	if err != nil {
 		return nil, err
 	}
-	wrk, _ := s.ws.GetBySlug(ctx, workspaceSlug)
 	l := &model.Label{
 		Name:        name,
 		Color:       color,
 		ProjectID:   &projectID,
-		WorkspaceID: wrk.ID,
+		WorkspaceID: workspaceID,
 	}
 	if err := s.ls.Create(ctx, l); err != nil {
 		return nil, err
@@ -63,11 +63,18 @@ func (s *LabelService) Create(ctx context.Context, workspaceSlug string, project
 }
 
 func (s *LabelService) GetByID(ctx context.Context, workspaceSlug string, projectID, labelID uuid.UUID, userID uuid.UUID) (*model.Label, error) {
-	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
+	workspaceID, err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID)
+	if err != nil {
 		return nil, err
 	}
 	l, err := s.ls.GetByID(ctx, labelID)
 	if err != nil {
+		return nil, ErrLabelNotFound
+	}
+	// A label's workspace must match the caller's resolved workspace — this is
+	// what actually protects workspace-level labels (ProjectID == nil), which
+	// the project-scoped check below can't see.
+	if l.WorkspaceID != workspaceID {
 		return nil, ErrLabelNotFound
 	}
 	if l.ProjectID != nil && *l.ProjectID != projectID {

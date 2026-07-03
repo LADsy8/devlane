@@ -30,6 +30,10 @@ func hashToken(plain string) string {
 	return hex.EncodeToString(h[:])
 }
 
+// HashToken hashes a plain-text API token for lookup (auth middleware never
+// stores or compares the plain value).
+func HashToken(plain string) string { return hashToken(plain) }
+
 // Create generates a new token, stores its hash, and returns the plain token (caller must show it once).
 func (s *ApiTokenStore) Create(ctx context.Context, userID uuid.UUID, label, description string, expiredAt *time.Time) (plainToken string, err error) {
 	plain, err := generateToken()
@@ -74,4 +78,22 @@ func (s *ApiTokenStore) Delete(ctx context.Context, tokenID, userID uuid.UUID) e
 		return gorm.ErrRecordNotFound
 	}
 	return nil
+}
+
+// GetActiveByHash returns the token matching hash if it is active and not
+// expired, for use by the auth middleware.
+func (s *ApiTokenStore) GetActiveByHash(ctx context.Context, hash string) (*model.ApiToken, error) {
+	var t model.ApiToken
+	err := s.db.WithContext(ctx).
+		Where("token = ? AND is_active = true AND (expired_at IS NULL OR expired_at > ?)", hash, time.Now().UTC()).
+		First(&t).Error
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// UpdateLastUsed stamps the token's last_used time.
+func (s *ApiTokenStore) UpdateLastUsed(ctx context.Context, id uuid.UUID) error {
+	return s.db.WithContext(ctx).Model(&model.ApiToken{}).Where("id = ?", id).Update("last_used", time.Now().UTC()).Error
 }

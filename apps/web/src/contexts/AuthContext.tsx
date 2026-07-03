@@ -24,6 +24,7 @@ function mapApiUserToUser(api: UserApiResponse): User {
     name,
     avatarUrl: api.avatar ?? null,
     coverImageUrl: api.cover_image ?? null,
+    isInstanceAdmin: api.is_instance_admin ?? false,
   };
 }
 
@@ -34,6 +35,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   setUserFromApi: (api: UserApiResponse) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -69,11 +71,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(mapApiUserToUser(api));
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    const api = await authService.signIn({ email, password });
-    setUser(mapApiUserToUser(api));
-    return true;
+  // Re-fetches the canonical user profile from /api/users/me/. Sign-in/
+  // sign-up/magic-code responses don't carry every field (e.g.
+  // is_instance_admin is only computed on the Me endpoint), so callers that
+  // need the full, authoritative profile right after establishing a session
+  // should use this instead of setUserFromApi with the raw auth response.
+  const refreshUser = useCallback(async () => {
+    const api = await authService.getMe();
+    if (api) setUser(mapApiUserToUser(api));
   }, []);
+
+  const login = useCallback(
+    async (email: string, password: string): Promise<boolean> => {
+      await authService.signIn({ email, password });
+      await refreshUser();
+      return true;
+    },
+    [refreshUser],
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -92,8 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       setUserFromApi,
+      refreshUser,
     }),
-    [user, isLoading, login, logout, setUserFromApi],
+    [user, isLoading, login, logout, setUserFromApi, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

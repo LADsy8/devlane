@@ -13,6 +13,11 @@ type WorkspaceStore struct{ db *gorm.DB }
 
 func NewWorkspaceStore(db *gorm.DB) *WorkspaceStore { return &WorkspaceStore{db: db} }
 
+// Transaction runs fn inside a DB transaction (same connection).
+func (s *WorkspaceStore) Transaction(ctx context.Context, fn func(tx *gorm.DB) error) error {
+	return s.db.WithContext(ctx).Transaction(fn)
+}
+
 func (s *WorkspaceStore) Create(ctx context.Context, w *model.Workspace) error {
 	return s.db.WithContext(ctx).Create(w).Error
 }

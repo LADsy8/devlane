@@ -284,6 +284,7 @@ export interface UserApiResponse {
   is_active: boolean;
   is_onboarded: boolean;
   is_password_autoset?: boolean;
+  is_instance_admin?: boolean;
   date_joined: string;
   created_at: string;
   updated_at: string;

@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/Devlaner/devlane/api/internal/auth"
 	gh "github.com/Devlaner/devlane/api/internal/github"
@@ -41,6 +42,11 @@ func New(cfg Config) *gin.Engine {
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	// Gin trusts all proxies by default, which lets any client spoof
+	// X-Forwarded-For/X-Real-IP and defeat c.ClientIP()-keyed rate limiting.
+	// Disable that trust so ClientIP() always returns the real remote
+	// address unless this is explicitly reconfigured for a known proxy/LB.
+	_ = r.SetTrustedProxies(nil)
 
 	r.Use(middleware.Recovery(cfg.Log))
 	r.Use(middleware.Logger(cfg.Log))
@@ -95,6 +101,7 @@ func New(cfg Config) *gin.Engine {
 	// Auth
 	authSvc := auth.NewService(userStore, sessionStore, passwordResetTokenStore)
 	authSvc.SetAccountStore(accountStore)
+	authSvc.SetApiTokenStore(apiTokenStore)
 	appBaseURL := cfg.AppBaseURL
 	if appBaseURL == "" {
 		appBaseURL = cfg.CORSAllowOrigin
@@ -107,6 +114,7 @@ func New(cfg Config) *gin.Engine {
 		Ws:                workspaceStore,
 		NotifPrefs:        userNotifPrefStore,
 		ApiTokens:         apiTokenStore,
+		InstanceAdmins:    instanceAdminStore,
 		Queue:             cfg.Queue,
 		Redis:             cfg.Redis,
 		MagicCodeSecret:   cfg.MagicCodeSecret,
@@ -494,13 +502,13 @@ func New(cfg Config) *gin.Engine {
 	authGroup := r.Group("/auth")
 	{
 		authGroup.GET("/config/", authHandler.InstanceAuthConfig)
-		authGroup.POST("/email-check/", authHandler.EmailCheck)
-		authGroup.POST("/sign-in/", authHandler.SignIn)
+		authGroup.POST("/email-check/", middleware.RateLimit(cfg.Redis, "emailcheck", 30, 15*time.Minute), authHandler.EmailCheck)
+		authGroup.POST("/sign-in/", middleware.RateLimit(cfg.Redis, "signin", 20, 15*time.Minute), authHandler.SignIn)
 		authGroup.POST("/sign-up/", authHandler.SignUp)
 		authGroup.POST("/sign-out/", authHandler.SignOut)
-		authGroup.POST("/forgot-password/", authHandler.ForgotPassword)
+		authGroup.POST("/forgot-password/", middleware.RateLimit(cfg.Redis, "forgotpw", 10, 15*time.Minute), authHandler.ForgotPassword)
 		authGroup.POST("/reset-password/", authHandler.ResetPassword)
-		authGroup.POST("/magic-code/request/", authHandler.MagicCodeRequest)
+		authGroup.POST("/magic-code/request/", middleware.RateLimit(cfg.Redis, "magiccode", 10, 15*time.Minute), authHandler.MagicCodeRequest)
 		authGroup.POST("/magic-code/verify/", authHandler.MagicCodeVerify)
 		authGroup.POST("/set-password/", middleware.RequireAuth(authSvc, cfg.Log), authHandler.SetPassword)
 	}

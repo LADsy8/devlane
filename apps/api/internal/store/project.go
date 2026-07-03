@@ -13,6 +13,11 @@ type ProjectStore struct{ db *gorm.DB }
 
 func NewProjectStore(db *gorm.DB) *ProjectStore { return &ProjectStore{db: db} }
 
+// Transaction runs fn inside a DB transaction (same connection).
+func (s *ProjectStore) Transaction(ctx context.Context, fn func(tx *gorm.DB) error) error {
+	return s.db.WithContext(ctx).Transaction(fn)
+}
+
 func (s *ProjectStore) Create(ctx context.Context, p *model.Project) error {
 	return s.db.WithContext(ctx).Create(p).Error
 }

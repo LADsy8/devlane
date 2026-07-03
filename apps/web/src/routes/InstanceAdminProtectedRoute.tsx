@@ -7,7 +7,7 @@ interface InstanceAdminProtectedRouteProps {
 
 export function InstanceAdminProtectedRoute({ children }: InstanceAdminProtectedRouteProps) {
   const location = useLocation();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -19,6 +19,10 @@ export function InstanceAdminProtectedRoute({ children }: InstanceAdminProtected
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!user?.isInstanceAdmin) {
+    return <Navigate to="/" state={{ notAuthorized: true }} replace />;
   }
 
   return <>{children}</>;

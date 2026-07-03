@@ -183,8 +183,6 @@ const InstanceAdminIntegrationGitHubPage = lazy(() =>
     page({ InstanceAdminIntegrationGitHubPage: m.InstanceAdminIntegrationGitHubPage }),
   ),
 );
-// Reserved for future instance-admin login route:
-// const InstanceAdminLoginPage = lazy(() => import("../pages/instance-admin").then((m) => page({ InstanceAdminLoginPage: m.InstanceAdminLoginPage })));
 
 const InstanceSetupWelcomePage = lazy(() =>
   import('../pages/setup').then((m) =>

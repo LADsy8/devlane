@@ -27,20 +27,43 @@ func SessionKeyFromCookieOrBearer(c *gin.Context) string {
 	return sessionKey
 }
 
-// RequireAuth loads the user from session and returns 401 if not authenticated.
+// RequireAuth loads the user from a session cookie or Authorization: Bearer
+// header, and returns 401 if not authenticated. A session cookie is tried
+// first; if that's absent or doesn't resolve to a user (e.g. stale/expired),
+// the Authorization header is tried next — first as an API token (hashed and
+// looked up via the auth service), and if that doesn't match, as a raw
+// session key — kept for the cross-origin OAuth SPA fragment flow (see
+// SessionKeyFromCookieOrBearer). Both cookie and bearer are checked
+// independently so a stale cookie can never mask a valid bearer token.
 func RequireAuth(authSvc *auth.Service, log *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sessionKey := SessionKeyFromCookieOrBearer(c)
-		user, err := authSvc.UserFromSession(c.Request.Context(), sessionKey)
-		if err != nil || user == nil {
-			if log != nil {
-				log.Debug("auth required", "error", err, "has_session_key", sessionKey != "")
+		ctx := c.Request.Context()
+
+		if cookieKey, _ := c.Cookie(SessionCookieName); cookieKey != "" {
+			if user, err := authSvc.UserFromSession(ctx, cookieKey); err == nil && user != nil {
+				c.Set(UserContextKey, user)
+				c.Next()
+				return
 			}
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
-			return
 		}
-		c.Set(UserContextKey, user)
-		c.Next()
+		if authHeader := c.GetHeader("Authorization"); len(authHeader) > 7 && strings.EqualFold(authHeader[:7], "bearer ") {
+			bearer := strings.TrimSpace(authHeader[7:])
+			if user, err := authSvc.UserFromAPIToken(ctx, bearer); err == nil && user != nil {
+				c.Set(UserContextKey, user)
+				c.Next()
+				return
+			}
+			if user, err := authSvc.UserFromSession(ctx, bearer); err == nil && user != nil {
+				c.Set(UserContextKey, user)
+				c.Next()
+				return
+			}
+		}
+
+		if log != nil {
+			log.Debug("auth required", "has_session_key", SessionKeyFromCookieOrBearer(c) != "")
+		}
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
 	}
 }
 
