@@ -1,0 +1,39 @@
+name: Root CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docker-compose.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'commitlint.config.cjs'
+      - 'lint-staged.config.mjs'
+      - '.husky/**'
+      - '.github/workflows/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Check lint-staged.config.mjs syntax
+        run: node --check lint-staged.config.mjs
+
+      - name: Check commitlint.config.cjs syntax
+        run: node --check commitlint.config.cjs
+
+      - name: Install root dependencies
+        run: npm ci
