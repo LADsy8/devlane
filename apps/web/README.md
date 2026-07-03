@@ -1,99 +1,46 @@
-# React + TypeScript + Vite
+# Devlane Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript + Vite single-page app for Devlane (Tailwind 4, React
+Router 7).
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Node.js (see the root `package.json`/CI config for the version used)
+- The Devlane API running locally (see `apps/api/README.md`) — or set
+  `VITE_API_BASE_URL` to point at a different instance.
 
-## React Compiler
+## Local setup
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+1. `npm install`
+2. `npm run dev` — starts the Vite dev server on `http://localhost:5173` by
+   default, proxying API calls to `http://localhost:8080` (see
+   `src/api/client.ts`).
+3. On first run, complete instance setup in the browser (create the admin
+   account, then a workspace and project).
 
-## Expanding the ESLint configuration
+## Environment variables
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+| Variable            | Purpose                     | Default (dev)           |
+| ------------------- | --------------------------- | ----------------------- |
+| `VITE_API_BASE_URL` | Base URL of the Devlane API | `http://localhost:8080` |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Commands
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+```sh
+npm run dev            # start the Vite dev server (HMR)
+npm run build           # tsc -b && vite build
+npm run typecheck       # tsc -b --noEmit
+npm run lint            # eslint .
+npm run lint:fix        # eslint --fix .
+npm run format          # prettier --write .
+npm run format:check    # prettier --check .
+npm run preview         # serve the production build locally
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Conventions
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x';
-import reactDom from 'eslint-plugin-react-dom';
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
-
----
-
-## Ufazien Deployment
-
-This project is configured for deployment to Ufazien Hosting.
-
-### Build and Deploy
-
-1. Build your project (this will create a `dist` or `build` folder):
-
-```bash
-npm run build
-# or
-yarn build
-# or
-pnpm build
-```
-
-2. Deploy to Ufazien:
-
-```bash
-ufazien deploy
-```
-
-The deployment will automatically upload the contents of your build folder.
+API calls always go through a service in `src/services/`, which uses the
+shared `apiClient` in `src/api/client.ts` (`withCredentials: true` for cookie
+sessions — don't create new axios instances). Routing is workspace-scoped
+(`/:workspaceSlug/...`). See the repo-root `CLAUDE.md` for the full frontend
+architecture overview and `CONTRIBUTING.md` for commit/PR conventions.

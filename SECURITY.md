@@ -2,20 +2,18 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
-
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+Devlane is under active development on a single `main` branch. Only the latest
+commit on `main` is supported with security fixes — there are no parallel
+maintained release lines.
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Please **do not** open a public GitHub issue for security vulnerabilities.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Instead, use GitHub's private vulnerability reporting for this repository:
+open the **Security** tab → **Report a vulnerability**. This creates a private
+advisory visible only to maintainers until a fix is ready.
+
+We'll acknowledge new reports as soon as possible and keep you updated as we
+investigate and prepare a fix. Once a fix is released, we'll credit you in the
+advisory (unless you'd prefer to stay anonymous).
