@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Avatar } from '../ui';
 import { ProjectIconDisplay } from '../ProjectIconModal';
 import { getImageUrl } from '../../lib/utils';
@@ -12,6 +13,32 @@ import {
 } from './sections-config';
 import type { ProjectApiResponse, WorkspaceApiResponse } from '../../api/types';
 import type { User } from '../../types';
+
+interface SectionNavButtonProps {
+  label: string;
+  icon: ReactNode;
+  active: boolean;
+  onClick: () => void;
+  dense?: boolean;
+}
+
+/** Shared icon+label nav button used by every section list below. */
+function SectionNavButton({ label, icon, active, onClick, dense }: SectionNavButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-2 rounded-md px-2 ${dense ? 'py-1' : 'py-1.5'} text-left text-sm font-medium transition-colors ${
+        active
+          ? 'bg-(--brand-200) text-(--txt-primary)'
+          : 'text-(--txt-secondary) hover:bg-(--bg-layer-transparent-hover) hover:text-(--txt-primary)'
+      }`}
+    >
+      <span className="text-(--txt-icon-secondary)">{icon}</span>
+      {label}
+    </button>
+  );
+}
 
 interface SettingsNavProps {
   isAccountTab: boolean;
@@ -65,37 +92,25 @@ export function SettingsNav({
               Your Profile
             </p>
             {ACCOUNT_SECTIONS_PROFILE.map(({ id, label, icon }) => (
-              <button
+              <SectionNavButton
                 key={id}
-                type="button"
+                label={label}
+                icon={icon}
+                active={accountSection === id}
                 onClick={() => setAccountSection(id)}
-                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors ${
-                  accountSection === id
-                    ? 'bg-(--brand-200) text-(--txt-primary)'
-                    : 'text-(--txt-secondary) hover:bg-(--bg-layer-transparent-hover) hover:text-(--txt-primary)'
-                }`}
-              >
-                <span className="text-(--txt-icon-secondary)">{icon}</span>
-                {label}
-              </button>
+              />
             ))}
             <p className="mb-2 mt-4 px-2 text-xs font-medium uppercase tracking-wider text-(--txt-tertiary)">
               Developer
             </p>
             {ACCOUNT_SECTIONS_DEVELOPER.map(({ id, label, icon }) => (
-              <button
+              <SectionNavButton
                 key={id}
-                type="button"
+                label={label}
+                icon={icon}
+                active={accountSection === id}
                 onClick={() => setAccountSection(id)}
-                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors ${
-                  accountSection === id
-                    ? 'bg-(--brand-200) text-(--txt-primary)'
-                    : 'text-(--txt-secondary) hover:bg-(--bg-layer-transparent-hover) hover:text-(--txt-primary)'
-                }`}
-              >
-                <span className="text-(--txt-icon-secondary)">{icon}</span>
-                {label}
-              </button>
+              />
             ))}
           </nav>
         </>
@@ -138,19 +153,14 @@ export function SettingsNav({
                   {isSelected && (
                     <div className="ml-4 space-y-0.5 border-l border-(--border-subtle) pl-2">
                       {PROJECT_SECTIONS.map(({ id, label, icon }) => (
-                        <button
+                        <SectionNavButton
                           key={id}
-                          type="button"
+                          label={label}
+                          icon={icon}
+                          active={projectSection === id}
                           onClick={() => setProjectSection(proj.id, id)}
-                          className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm font-medium transition-colors ${
-                            projectSection === id
-                              ? 'bg-(--brand-200) text-(--txt-primary)'
-                              : 'text-(--txt-secondary) hover:bg-(--bg-layer-transparent-hover) hover:text-(--txt-primary)'
-                          }`}
-                        >
-                          <span className="text-(--txt-icon-secondary)">{icon}</span>
-                          {label}
-                        </button>
+                          dense
+                        />
                       ))}
                     </div>
                   )}
@@ -177,37 +187,25 @@ export function SettingsNav({
               Administration
             </p>
             {WORKSPACE_SECTIONS.slice(0, 4).map(({ id, label, icon }) => (
-              <button
+              <SectionNavButton
                 key={id}
-                type="button"
+                label={label}
+                icon={icon}
+                active={section === id}
                 onClick={() => setSection(id)}
-                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors ${
-                  section === id
-                    ? 'bg-(--brand-200) text-(--txt-primary)'
-                    : 'text-(--txt-secondary) hover:bg-(--bg-layer-transparent-hover) hover:text-(--txt-primary)'
-                }`}
-              >
-                <span className="text-(--txt-icon-secondary)">{icon}</span>
-                {label}
-              </button>
+              />
             ))}
             <p className="mb-2 mt-4 px-2 text-xs font-medium uppercase tracking-wider text-(--txt-tertiary)">
               Developer
             </p>
             {WORKSPACE_SECTIONS.slice(4).map(({ id, label, icon }) => (
-              <button
+              <SectionNavButton
                 key={id}
-                type="button"
+                label={label}
+                icon={icon}
+                active={section === id}
                 onClick={() => setSection(id)}
-                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors ${
-                  section === id
-                    ? 'bg-(--brand-200) text-(--txt-primary)'
-                    : 'text-(--txt-secondary) hover:bg-(--bg-layer-transparent-hover) hover:text-(--txt-primary)'
-                }`}
-              >
-                <span className="text-(--txt-icon-secondary)">{icon}</span>
-                {label}
-              </button>
+              />
             ))}
           </nav>
         </>

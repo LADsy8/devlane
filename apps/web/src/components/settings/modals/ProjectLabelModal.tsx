@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button, Modal } from '../../ui';
 import { labelService } from '../../../services/labelService';
 import type { LabelApiResponse } from '../../../api/types';
@@ -32,6 +33,9 @@ export function ProjectLabelModal({
   setProjectLabels,
   setProjectLabelModalOpen,
 }: ProjectLabelModalProps) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   return (
     <Modal
       open={open}
@@ -43,9 +47,11 @@ export function ProjectLabelModal({
             Cancel
           </Button>
           <Button
-            disabled={!projectLabelName.trim()}
+            disabled={!projectLabelName.trim() || saving}
             onClick={async () => {
               if (!workspaceSlug || !selectedProjectId || !projectLabelName.trim()) return;
+              setSaving(true);
+              setError(null);
               try {
                 if (projectLabelEdit) {
                   await labelService.update(workspaceSlug, selectedProjectId, projectLabelEdit.id, {
@@ -63,16 +69,23 @@ export function ProjectLabelModal({
                 setProjectLabelModalOpen(false);
                 setProjectLabelEdit(null);
               } catch {
-                // Intentionally empty (kept for future use)
+                setError('Failed to save label. Please try again.');
+              } finally {
+                setSaving(false);
               }
             }}
           >
-            {projectLabelEdit ? 'Save' : 'Create'}
+            {saving ? 'Saving…' : projectLabelEdit ? 'Save' : 'Create'}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
+        {error ? (
+          <p className="rounded-(--radius-md) bg-(--bg-danger-subtle) px-3 py-2 text-sm text-(--txt-danger)">
+            {error}
+          </p>
+        ) : null}
         <div>
           <label className="mb-1 block text-sm font-medium text-(--txt-secondary)">Name</label>
           <input

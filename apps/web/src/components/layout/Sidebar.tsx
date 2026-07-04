@@ -23,6 +23,7 @@ import { cycleService } from '../../services/cycleService';
 import { viewService } from '../../services/viewService';
 import { slugify } from '../../lib/slug';
 import { cyclePathSegment } from '../../lib/cycle';
+import { OPEN_COMMAND_PALETTE } from '../../lib/commandPaletteEvents';
 import { ISSUE_VIEW_FAVORITES_CHANGED_EVENT } from '../../lib/issueViewFavoritesEvents';
 import { CYCLE_FAVORITES_CHANGED_EVENT } from '../../hooks/useCycleFavorites';
 
@@ -782,6 +783,15 @@ export function Sidebar() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [baseUrl]);
+
+  useEffect(() => {
+    const onOpenCommandPalette = () => {
+      if (!baseUrl) return;
+      setCommandPaletteOpen(true);
+    };
+    window.addEventListener(OPEN_COMMAND_PALETTE, onOpenCommandPalette);
+    return () => window.removeEventListener(OPEN_COMMAND_PALETTE, onOpenCommandPalette);
   }, [baseUrl]);
 
   const toggleProject = (id: string) => {

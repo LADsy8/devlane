@@ -36,14 +36,26 @@ export function WorkspaceViewsHeader() {
   const [customViews, setCustomViews] = useState<IssueViewApiResponse[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     if (!workspaceSlug) {
-      queueMicrotask(() => setCustomViews([]));
-      return;
+      queueMicrotask(() => {
+        if (!cancelled) setCustomViews([]);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
     viewService
       .list(workspaceSlug)
-      .then((list) => setCustomViews(list ?? []))
-      .catch(() => setCustomViews([]));
+      .then((list) => {
+        if (!cancelled) setCustomViews(list ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setCustomViews([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [workspaceSlug]);
 
   useEffect(() => {

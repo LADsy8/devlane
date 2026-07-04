@@ -1,6 +1,7 @@
 import { ProjectIconDisplay } from '../../ProjectIconModal';
 import type { ProjectApiResponse } from '../../../api/types';
 import { IconSearch } from './icons';
+import { dispatchOpenCommandPalette } from '../../../lib/commandPaletteEvents';
 
 export function ProjectDetailHeader({
   project,
@@ -27,6 +28,7 @@ export function ProjectDetailHeader({
       <div className="flex items-center gap-2">
         <button
           type="button"
+          onClick={() => dispatchOpenCommandPalette()}
           className="flex size-8 items-center justify-center rounded-md text-(--txt-icon-tertiary) hover:bg-(--bg-layer-transparent-hover) hover:text-(--txt-icon-secondary)"
           aria-label="Search"
         >

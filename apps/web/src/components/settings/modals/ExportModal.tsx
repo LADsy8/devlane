@@ -103,7 +103,7 @@ export function ExportModal({
                         const v = row[h];
                         if (v === null || v === undefined) return '';
                         let s: string;
-                        if (typeof v === 'object' && v !== null && h === 'description') {
+                        if (typeof v === 'object' && h === 'description') {
                           s = (row.description_html as string) ?? JSON.stringify(v);
                         } else {
                           s = String(v);

@@ -235,6 +235,7 @@ export function PageHeader() {
   } else if (isProjectSection && workspaceSlug && projectId && project && projectSection) {
     content = (
       <ProjectSectionHeader
+        key={projectId}
         workspaceSlug={workspaceSlug}
         projectId={projectId}
         project={project}

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button, Modal } from '../../ui';
 import { stateService } from '../../../services/stateService';
 import type { StateApiResponse } from '../../../api/types';
@@ -36,6 +37,9 @@ export function ProjectStateModal({
   setProjectStates,
   setProjectStateModalOpen,
 }: ProjectStateModalProps) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   return (
     <Modal
       open={open}
@@ -47,9 +51,11 @@ export function ProjectStateModal({
             Cancel
           </Button>
           <Button
-            disabled={!projectStateName.trim()}
+            disabled={!projectStateName.trim() || saving}
             onClick={async () => {
               if (!workspaceSlug || !selectedProjectId || !projectStateName.trim()) return;
+              setSaving(true);
+              setError(null);
               try {
                 if (projectStateEdit) {
                   await stateService.update(workspaceSlug, selectedProjectId, projectStateEdit.id, {
@@ -68,16 +74,23 @@ export function ProjectStateModal({
                 setProjectStateModalOpen(false);
                 setProjectStateEdit(null);
               } catch {
-                // Intentionally empty (kept for future use)
+                setError('Failed to save state. Please try again.');
+              } finally {
+                setSaving(false);
               }
             }}
           >
-            {projectStateEdit ? 'Save' : 'Create'}
+            {saving ? 'Saving…' : projectStateEdit ? 'Save' : 'Create'}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
+        {error ? (
+          <p className="rounded-(--radius-md) bg-(--bg-danger-subtle) px-3 py-2 text-sm text-(--txt-danger)">
+            {error}
+          </p>
+        ) : null}
         <div>
           <label className="mb-1 block text-sm font-medium text-(--txt-secondary)">Name</label>
           <input

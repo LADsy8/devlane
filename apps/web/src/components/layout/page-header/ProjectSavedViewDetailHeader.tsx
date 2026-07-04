@@ -63,10 +63,13 @@ export function ProjectSavedViewDetailHeader({
   // Pulls the view from the API and seeds title + savedFilters snapshot.
   // The view's `filters` JSON is a flat `Record<string, string>` matching the
   // search-params shape used by parseWorkspaceViewFiltersFromSearchParams.
-  const refreshView = useRef<() => Promise<void>>(async () => {});
-  refreshView.current = async () => {
+  const refreshView = useRef<(cancelledRef?: { current: boolean }) => Promise<void>>(
+    async () => {},
+  );
+  refreshView.current = async (cancelledRef) => {
     try {
       const v = await viewService.get(workspaceSlug, viewId);
+      if (cancelledRef?.current) return;
       setViewTitle(v?.name?.trim() ? v.name : 'View');
       const raw = v?.filters;
       if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
@@ -81,35 +84,15 @@ export function ProjectSavedViewDetailHeader({
         setSavedFilters(parseWorkspaceViewFiltersFromSearchParams(new URLSearchParams()));
       }
     } catch {
-      setViewTitle('View');
+      if (!cancelledRef?.current) setViewTitle('View');
     }
   };
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const v = await viewService.get(workspaceSlug, viewId);
-        if (cancelled) return;
-        setViewTitle(v?.name?.trim() ? v.name : 'View');
-        const raw = v?.filters;
-        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-          const params = new URLSearchParams();
-          for (const [k, val] of Object.entries(raw as Record<string, unknown>)) {
-            if (val == null) continue;
-            const s = String(val).trim();
-            if (s) params.set(k, s);
-          }
-          setSavedFilters(parseWorkspaceViewFiltersFromSearchParams(params));
-        } else {
-          setSavedFilters(parseWorkspaceViewFiltersFromSearchParams(new URLSearchParams()));
-        }
-      } catch {
-        if (!cancelled) setViewTitle('View');
-      }
-    })();
+    const cancelledRef = { current: false };
+    void refreshView.current(cancelledRef);
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
   }, [workspaceSlug, viewId]);
 
