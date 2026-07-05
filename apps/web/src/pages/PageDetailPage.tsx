@@ -8,6 +8,7 @@ import {
   FileText,
   History,
   Link2,
+  ListTree,
   Lock,
   MoreHorizontal,
   PanelRight,
@@ -22,6 +23,7 @@ import {
   EmojiLogoPicker,
   PageEditorContent,
   PageEditorToolbar,
+  PageOutline,
   usePageEditor,
   type PageLogo,
 } from '../components/page-editor';
@@ -67,7 +69,7 @@ function pageLogoFrom(page: PageApiResponse | null): PageLogo | undefined {
   return props;
 }
 
-type SidePanel = 'closed' | 'subpages' | 'versions';
+type SidePanel = 'closed' | 'outline' | 'subpages' | 'versions';
 
 export function PageDetailPage() {
   const { workspaceSlug, projectId, pageId } = useParams<{
@@ -657,7 +659,7 @@ export function PageDetailPage() {
     <Tooltip content={sidebarOpen ? 'Hide side panel' : 'Show side panel'}>
       <button
         type="button"
-        onClick={() => switchSidePanelTo(sidebarOpen ? 'closed' : 'subpages')}
+        onClick={() => switchSidePanelTo(sidebarOpen ? 'closed' : 'outline')}
         aria-label={sidebarOpen ? 'Hide side panel' : 'Show side panel'}
         className="grid size-7 place-items-center rounded text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-primary)"
       >
@@ -729,9 +731,21 @@ export function PageDetailPage() {
             <div className="flex shrink-0 items-center gap-1 border-b border-(--border-subtle) px-2 py-1.5">
               <button
                 type="button"
+                onClick={() => switchSidePanelTo('outline')}
+                className={cn(
+                  'flex-1 rounded px-2 py-1.5 text-center text-xs font-medium tracking-wide uppercase transition-colors',
+                  sidePanel === 'outline'
+                    ? 'bg-(--bg-layer-1) text-(--txt-primary)'
+                    : 'text-(--txt-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-primary)',
+                )}
+              >
+                <ListTree size={11} className="mr-1 inline-block" /> Outline
+              </button>
+              <button
+                type="button"
                 onClick={() => switchSidePanelTo('subpages')}
                 className={cn(
-                  'flex-1 rounded px-2 py-1.5 text-left text-xs font-medium tracking-wide uppercase transition-colors',
+                  'flex-1 rounded px-2 py-1.5 text-center text-xs font-medium tracking-wide uppercase transition-colors',
                   sidePanel === 'subpages'
                     ? 'bg-(--bg-layer-1) text-(--txt-primary)'
                     : 'text-(--txt-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-primary)',
@@ -743,7 +757,7 @@ export function PageDetailPage() {
                 type="button"
                 onClick={() => switchSidePanelTo('versions')}
                 className={cn(
-                  'flex-1 rounded px-2 py-1.5 text-left text-xs font-medium tracking-wide uppercase transition-colors',
+                  'flex-1 rounded px-2 py-1.5 text-center text-xs font-medium tracking-wide uppercase transition-colors',
                   sidePanel === 'versions'
                     ? 'bg-(--bg-layer-1) text-(--txt-primary)'
                     : 'text-(--txt-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-primary)',
@@ -753,7 +767,11 @@ export function PageDetailPage() {
               </button>
             </div>
 
-            {sidePanel === 'subpages' ? (
+            {sidePanel === 'outline' ? (
+              <div className="min-h-0 flex-1 overflow-y-auto p-1">
+                <PageOutline editor={editor} />
+              </div>
+            ) : sidePanel === 'subpages' ? (
               <div className="min-h-0 flex-1 overflow-y-auto p-2">
                 <button
                   type="button"
