@@ -7,6 +7,7 @@ import { moduleService } from '../services/moduleService';
 import type { ModuleApiResponse, WorkspaceMemberApiResponse } from '../api/types';
 import { formatISODateDisplay } from '../lib/dateOnly';
 import { MODULE_STATUSES } from '../lib/moduleStatuses';
+import { apiErrorMessage } from '../lib/apiError';
 
 function formatDateRangeDisplay(start: string | null, end: string | null): string {
   if (!start && !end) return 'Start date → End date';
@@ -128,7 +129,7 @@ export function UpdateModuleModal({
       onUpdated?.(updated);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update module');
+      setError(apiErrorMessage(e, 'Failed to update module.'));
     } finally {
       setSubmitting(false);
     }

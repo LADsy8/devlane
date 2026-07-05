@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, Button, Input } from './ui';
 import { DateRangeModal } from './workspace-views/DateRangeModal';
 import { cycleService } from '../services/cycleService';
 import type { CycleApiResponse } from '../api/types';
 import { formatISODateDisplay } from '../lib/dateOnly';
+import { apiErrorMessage } from '../lib/apiError';
+import { overlappingCycles } from '../lib/cycleOverlap';
 
 const IconCalendar = () => (
   <svg
@@ -56,6 +58,7 @@ export function UpdateCycleModal({
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [siblingCycles, setSiblingCycles] = useState<CycleApiResponse[]>([]);
 
   useEffect(() => {
     if (!open || !cycle) return;
@@ -66,6 +69,31 @@ export function UpdateCycleModal({
     setDateModalOpen(false);
     setError(null);
   }, [open, cycle]);
+
+  // Other cycles in the project, to warn (not block) on overlap.
+  useEffect(() => {
+    if (!open || !projectId) {
+      setSiblingCycles([]);
+      return;
+    }
+    let cancelled = false;
+    cycleService
+      .list(workspaceSlug, projectId)
+      .then((list) => {
+        if (!cancelled) setSiblingCycles(list ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setSiblingCycles([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, workspaceSlug, projectId]);
+
+  const overlapNames = useMemo(
+    () => overlappingCycles(siblingCycles, startDate, endDate, cycle?.id).map((c) => c.name),
+    [siblingCycles, startDate, endDate, cycle?.id],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +113,7 @@ export function UpdateCycleModal({
       onClose();
       onUpdated?.(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update cycle.');
+      setError(apiErrorMessage(err, 'Failed to update cycle.'));
     } finally {
       setSubmitting(false);
     }
@@ -143,6 +171,13 @@ export function UpdateCycleModal({
             </span>
             {formatDateRangeDisplay(startDate, endDate)}
           </button>
+
+          {overlapNames.length > 0 && (
+            <p className="text-sm text-(--txt-warning-primary)">
+              These dates overlap {overlapNames.length === 1 ? 'the cycle' : 'cycles'}{' '}
+              {overlapNames.join(', ')}.
+            </p>
+          )}
 
           {error && <p className="text-sm text-(--txt-danger-primary)">{error}</p>}
         </form>

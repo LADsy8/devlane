@@ -90,6 +90,10 @@ func (h *CycleHandler) Create(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 			return
 		}
+		if err == service.ErrInvalidCycleDates {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cycle"})
 		return
 	}
@@ -172,6 +176,10 @@ func (h *CycleHandler) Update(c *gin.Context) {
 	if err != nil {
 		if err == service.ErrCycleNotFound || err == service.ErrProjectForbidden || err == service.ErrProjectNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+			return
+		}
+		if err == service.ErrInvalidCycleDates {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cycle"})

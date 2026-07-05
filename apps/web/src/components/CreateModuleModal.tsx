@@ -8,6 +8,7 @@ import type { ModuleApiResponse } from '../api/types';
 import type { WorkspaceMemberApiResponse } from '../api/types';
 import { formatISODateDisplay } from '../lib/dateOnly';
 import { MODULE_STATUSES } from '../lib/moduleStatuses';
+import { apiErrorMessage } from '../lib/apiError';
 
 function formatDateRangeDisplay(start: string | null, end: string | null): string {
   if (!start && !end) return 'Start date → End date';
@@ -125,7 +126,7 @@ export function CreateModuleModal({
       onClose();
       onCreated?.(created);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create module.');
+      setError(apiErrorMessage(err, 'Failed to create module.'));
     } finally {
       setSubmitting(false);
     }

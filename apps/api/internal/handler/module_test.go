@@ -52,6 +52,28 @@ func TestModule_CRUD(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, rr5.Code)
 }
 
+func TestModule_RejectsInvalidDates(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	w := testutil.SeedWorld(t, ts.DB)
+	base := moduleBase(w.Workspace.Slug, w.Project.ID.String())
+
+	// Target before start is rejected.
+	rr := ts.POST(base, map[string]any{
+		"name":        "Backwards",
+		"start_date":  "2026-02-10",
+		"target_date": "2026-02-01",
+	}, w.Session)
+	require.Equal(t, http.StatusBadRequest, rr.Code, "body=%s", rr.Body.String())
+
+	// A valid range is accepted.
+	ok := ts.POST(base, map[string]any{
+		"name":        "Module",
+		"start_date":  "2026-02-01",
+		"target_date": "2026-02-10",
+	}, w.Session)
+	require.Equal(t, http.StatusCreated, ok.Code, "body=%s", ok.Body.String())
+}
+
 func TestModule_Issues_AddListRemove(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 	w := testutil.SeedWorld(t, ts.DB)

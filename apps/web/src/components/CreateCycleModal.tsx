@@ -7,6 +7,8 @@ import { projectService } from '../services/projectService';
 import { cycleService } from '../services/cycleService';
 import type { CycleApiResponse, ProjectApiResponse } from '../api/types';
 import { formatISODateDisplay } from '../lib/dateOnly';
+import { overlappingCycles } from '../lib/cycleOverlap';
+import { apiErrorMessage } from '../lib/apiError';
 
 const IconCalendar = () => (
   <svg
@@ -87,6 +89,7 @@ export function CreateCycleModal({
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
+  const [siblingCycles, setSiblingCycles] = useState<CycleApiResponse[]>([]);
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +101,26 @@ export function CreateCycleModal({
       .then((list) => setProjects(list ?? []))
       .catch(() => setProjects([]));
   }, [open, workspaceSlug]);
+
+  // Sibling cycles in the selected project, to warn (not block) on overlap.
+  useEffect(() => {
+    if (!open || !selectedProjectId) {
+      setSiblingCycles([]);
+      return;
+    }
+    let cancelled = false;
+    cycleService
+      .list(workspaceSlug, selectedProjectId)
+      .then((list) => {
+        if (!cancelled) setSiblingCycles(list ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setSiblingCycles([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, workspaceSlug, selectedProjectId]);
 
   useEffect(() => {
     if (!open) {
@@ -118,6 +141,11 @@ export function CreateCycleModal({
     projects.find((p) => p.id === selectedProjectId) ??
     projects.find((p) => p.id === projectId) ??
     null;
+
+  const overlapNames = useMemo(
+    () => overlappingCycles(siblingCycles, startDate, endDate).map((c) => c.name),
+    [siblingCycles, startDate, endDate],
+  );
 
   const filteredProjects = useMemo(() => {
     const q = projectSearch.trim().toLowerCase();
@@ -143,7 +171,7 @@ export function CreateCycleModal({
       onClose();
       onCreated?.(created, selectedProjectId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create cycle.');
+      setError(apiErrorMessage(err, 'Failed to create cycle.'));
     } finally {
       setSubmitting(false);
     }
@@ -269,6 +297,13 @@ export function CreateCycleModal({
             </span>
             {formatDateRangeDisplay(startDate, endDate)}
           </button>
+
+          {overlapNames.length > 0 && (
+            <p className="text-sm text-(--txt-warning-primary)">
+              These dates overlap {overlapNames.length === 1 ? 'the cycle' : 'cycles'}{' '}
+              {overlapNames.join(', ')}.
+            </p>
+          )}
 
           {error && <p className="text-sm text-(--txt-danger-primary)">{error}</p>}
         </form>

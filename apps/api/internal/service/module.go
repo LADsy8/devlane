@@ -13,6 +13,19 @@ import (
 
 var ErrModuleNotFound = errors.New("module not found")
 
+// ErrInvalidModuleDates is returned when a module's start date falls after its
+// target date.
+var ErrInvalidModuleDates = errors.New("module start date must be on or before the target date")
+
+// validateModuleDates rejects a start that falls after the target. Either date
+// may be nil; the check only applies when both are set.
+func validateModuleDates(start, target *time.Time) error {
+	if start != nil && target != nil && target.Before(*start) {
+		return ErrInvalidModuleDates
+	}
+	return nil
+}
+
 // ModuleService handles module business logic.
 type ModuleService struct {
 	ms *store.ModuleStore
@@ -79,6 +92,9 @@ func (s *ModuleService) List(ctx context.Context, workspaceSlug string, projectI
 
 func (s *ModuleService) Create(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID, name, description, status string, startDate, targetDate *time.Time, leadID *uuid.UUID, memberIDs []uuid.UUID) (*model.Module, error) {
 	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
+		return nil, err
+	}
+	if err := validateModuleDates(startDate, targetDate); err != nil {
 		return nil, err
 	}
 	wrk, _ := s.ws.GetBySlug(ctx, workspaceSlug)
@@ -169,6 +185,9 @@ func (s *ModuleService) Update(ctx context.Context, workspaceSlug string, projec
 	}
 	if targetDateSet {
 		mod.TargetDate = targetDate
+	}
+	if err := validateModuleDates(mod.StartDate, mod.TargetDate); err != nil {
+		return nil, err
 	}
 	if leadIDSet {
 		mod.LeadID = leadID

@@ -39,6 +39,20 @@ func computeCycleStatus(start, end *time.Time) string {
 
 var ErrCycleNotFound = errors.New("cycle not found")
 
+// ErrInvalidCycleDates is returned when a cycle's start date falls after its
+// end date.
+var ErrInvalidCycleDates = errors.New("cycle start date must be on or before the end date")
+
+// validateCycleDates rejects a start that falls after the end. Either date may
+// be nil (a draft or open-ended cycle); the check only applies when both are
+// set.
+func validateCycleDates(start, end *time.Time) error {
+	if start != nil && end != nil && end.Before(*start) {
+		return ErrInvalidCycleDates
+	}
+	return nil
+}
+
 // CycleService handles cycle business logic.
 type CycleService struct {
 	cs *store.CycleStore
@@ -97,6 +111,9 @@ func (s *CycleService) Create(ctx context.Context, workspaceSlug string, project
 	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
 		return nil, err
 	}
+	if err := validateCycleDates(startDate, endDate); err != nil {
+		return nil, err
+	}
 	wrk, _ := s.ws.GetBySlug(ctx, workspaceSlug)
 	cy := &model.Cycle{
 		Name:        name,
@@ -151,6 +168,9 @@ func (s *CycleService) Update(ctx context.Context, workspaceSlug string, project
 	}
 	if endDateSet {
 		cy.EndDate = endDate
+	}
+	if err := validateCycleDates(cy.StartDate, cy.EndDate); err != nil {
+		return nil, err
 	}
 	if err := s.cs.Update(ctx, cy); err != nil {
 		return nil, err

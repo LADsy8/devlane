@@ -52,6 +52,32 @@ func TestCycle_CRUD(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, rr5.Code)
 }
 
+func TestCycle_RejectsInvalidDates(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	w := testutil.SeedWorld(t, ts.DB)
+	base := cycleBase(w.Workspace.Slug, w.Project.ID.String())
+
+	// End before start is rejected on create.
+	rr := ts.POST(base, map[string]any{
+		"name":       "Backwards",
+		"start_date": "2026-02-10T00:00:00Z",
+		"end_date":   "2026-02-01T00:00:00Z",
+	}, w.Session)
+	require.Equal(t, http.StatusBadRequest, rr.Code, "body=%s", rr.Body.String())
+
+	// A valid range is accepted, then an update that inverts it is rejected.
+	ok := ts.POST(base, map[string]any{
+		"name":       "Sprint",
+		"start_date": "2026-02-01T00:00:00Z",
+		"end_date":   "2026-02-10T00:00:00Z",
+	}, w.Session)
+	require.Equal(t, http.StatusCreated, ok.Code, "body=%s", ok.Body.String())
+	id, _ := testutil.MustJSONMap(t, ok)["id"].(string)
+
+	bad := ts.PATCH(base+id+"/", map[string]any{"end_date": "2026-01-01T00:00:00Z"}, w.Session)
+	require.Equal(t, http.StatusBadRequest, bad.Code, "body=%s", bad.Body.String())
+}
+
 func TestCycle_Issues_AddListRemove(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 	w := testutil.SeedWorld(t, ts.DB)
