@@ -120,6 +120,42 @@ func (s *CycleStore) CycleStateDistribution(ctx context.Context, cycleID uuid.UU
 	return out, nil
 }
 
+// StateDistributionByProject returns, per cycle in the project, issue counts
+// grouped by state group. Used to compute real completion progress on the
+// cycles list without a query per cycle.
+func (s *CycleStore) StateDistributionByProject(ctx context.Context, projectID uuid.UUID) (map[uuid.UUID]map[string]int, error) {
+	var rows []struct {
+		Owner uuid.UUID `gorm:"column:owner"`
+		Group string    `gorm:"column:grp"`
+		Count int       `gorm:"column:count"`
+	}
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT ci.cycle_id AS owner, COALESCE(st."group", 'backlog') AS grp, COUNT(i.id) AS count
+		FROM cycle_issues ci
+		JOIN issues i ON i.id = ci.issue_id AND i.deleted_at IS NULL
+		LEFT JOIN states st ON st.id = i.state_id
+		WHERE ci.project_id = ? AND ci.deleted_at IS NULL
+		GROUP BY ci.cycle_id, COALESCE(st."group", 'backlog')
+	`, projectID).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[uuid.UUID]map[string]int)
+	for _, r := range rows {
+		m := out[r.Owner]
+		if m == nil {
+			m = map[string]int{"backlog": 0, "unstarted": 0, "started": 0, "completed": 0, "cancelled": 0}
+			out[r.Owner] = m
+		}
+		if _, ok := m[r.Group]; ok {
+			m[r.Group] += r.Count
+		} else {
+			m["backlog"] += r.Count
+		}
+	}
+	return out, nil
+}
+
 // CycleCompletionChart returns a date→count map of issues completed per day within the cycle's range.
 func (s *CycleStore) CycleCompletionChart(ctx context.Context, cycleID uuid.UUID, startDate, endDate *time.Time) (map[string]int, error) {
 	var rows []struct {

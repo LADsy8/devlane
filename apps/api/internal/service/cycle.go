@@ -264,3 +264,23 @@ func (s *CycleService) GetProgress(ctx context.Context, workspaceSlug string, pr
 		},
 	}, nil
 }
+
+// ProgressBulk returns, per cycle in the project, issue counts grouped by state
+// group plus a "total", so the cycles list can render real completion progress.
+func (s *CycleService) ProgressBulk(ctx context.Context, workspaceSlug string, projectID, userID uuid.UUID) (map[uuid.UUID]map[string]int, error) {
+	if err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
+		return nil, err
+	}
+	dist, err := s.cs.StateDistributionByProject(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range dist {
+		total := 0
+		for _, c := range m {
+			total += c
+		}
+		m["total"] = total
+	}
+	return dist, nil
+}

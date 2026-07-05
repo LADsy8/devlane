@@ -60,6 +60,37 @@ func (h *CycleHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
+// CyclesProgress returns, per cycle in the project, issue counts grouped by
+// state group (plus a total), keyed by cycle id.
+// GET /api/workspaces/:slug/projects/:projectId/cycles-progress/
+func (h *CycleHandler) CyclesProgress(c *gin.Context) {
+	user := middleware.GetUser(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	slug := c.Param("slug")
+	projectID, err := uuid.Parse(c.Param("projectId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+		return
+	}
+	prog, err := h.Cycle.ProgressBulk(c.Request.Context(), slug, projectID, user.ID)
+	if err != nil {
+		if err == service.ErrProjectForbidden || err == service.ErrProjectNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load cycle progress"})
+		return
+	}
+	if prog == nil {
+		c.JSON(http.StatusOK, gin.H{})
+		return
+	}
+	c.JSON(http.StatusOK, prog)
+}
+
 // Create creates a cycle.
 // POST /api/workspaces/:slug/projects/:projectId/cycles/
 func (h *CycleHandler) Create(c *gin.Context) {

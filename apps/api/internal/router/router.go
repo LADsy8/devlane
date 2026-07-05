@@ -361,6 +361,7 @@ func New(cfg Config) *gin.Engine {
 		api.POST("/workspaces/:slug/projects/:projectId/issues-bulk/reorder/", issueHandler.BulkReorder)
 
 		api.GET("/workspaces/:slug/projects/:projectId/cycles/", cycleHandler.List)
+		api.GET("/workspaces/:slug/projects/:projectId/cycles-progress/", cycleHandler.CyclesProgress)
 		api.POST("/workspaces/:slug/projects/:projectId/cycles/", cycleHandler.Create)
 		api.GET("/workspaces/:slug/projects/:projectId/cycles/:cycleId/", cycleHandler.Get)
 		api.PATCH("/workspaces/:slug/projects/:projectId/cycles/:cycleId/", cycleHandler.Update)
@@ -373,6 +374,7 @@ func New(cfg Config) *gin.Engine {
 		api.GET("/workspaces/:slug/projects/:projectId/cycles/:cycleId/analytics", cycleHandler.Analytics)
 
 		api.GET("/workspaces/:slug/projects/:projectId/modules/", moduleHandler.List)
+		api.GET("/workspaces/:slug/projects/:projectId/modules-progress/", moduleHandler.ModulesProgress)
 		api.POST("/workspaces/:slug/projects/:projectId/modules/", moduleHandler.Create)
 		api.GET("/workspaces/:slug/projects/:projectId/modules/:moduleId/", moduleHandler.Get)
 		api.PATCH("/workspaces/:slug/projects/:projectId/modules/:moduleId/", moduleHandler.Update)
