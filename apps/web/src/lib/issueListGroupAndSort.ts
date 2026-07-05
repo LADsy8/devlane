@@ -6,7 +6,11 @@ import type {
   ModuleApiResponse,
   WorkspaceMemberApiResponse,
 } from '../api/types';
-import type { SavedViewGroupBy, SavedViewOrderBy } from './projectSavedViewDisplay';
+import type {
+  SavedViewGroupBy,
+  SavedViewOrderBy,
+  SavedViewOrderDirection,
+} from './projectSavedViewDisplay';
 
 const NONE_STATE_KEY = '__no_state__';
 const ALL_GROUP_KEY = '__all__';
@@ -31,7 +35,16 @@ function pushUniq(arr: string[], id: string) {
 export function sortIssuesByOrder(
   list: IssueApiResponse[],
   orderBy: SavedViewOrderBy,
+  direction: SavedViewOrderDirection = 'asc',
 ): IssueApiResponse[] {
+  const sorted = sortAscending(list, orderBy);
+  return direction === 'desc' ? sorted.reverse() : sorted;
+}
+
+// The base (ascending) ordering for each order key. Descending is this list
+// reversed, so the toggle stays predictable regardless of the key's natural
+// direction.
+function sortAscending(list: IssueApiResponse[], orderBy: SavedViewOrderBy): IssueApiResponse[] {
   const out = [...list];
   switch (orderBy) {
     case 'manual':
@@ -84,6 +97,7 @@ export function buildGroupedIssues(params: {
   baseForGrouping: IssueApiResponse[];
   groupBy: SavedViewGroupBy;
   orderBy: SavedViewOrderBy;
+  orderDirection?: SavedViewOrderDirection;
   showEmptyGroups: boolean;
   states: StateApiResponse[];
   cycles: CycleApiResponse[];
@@ -95,6 +109,7 @@ export function buildGroupedIssues(params: {
     baseForGrouping,
     groupBy,
     orderBy,
+    orderDirection = 'asc',
     showEmptyGroups,
     states,
     cycles,
@@ -103,7 +118,7 @@ export function buildGroupedIssues(params: {
     members,
   } = params;
 
-  const sortIn = (arr: IssueApiResponse[]) => sortIssuesByOrder([...arr], orderBy);
+  const sortIn = (arr: IssueApiResponse[]) => sortIssuesByOrder([...arr], orderBy, orderDirection);
 
   const sortedStates = [...states].sort(
     (a, b) => (a.sequence ?? 0) - (b.sequence ?? 0) || a.name.localeCompare(b.name),

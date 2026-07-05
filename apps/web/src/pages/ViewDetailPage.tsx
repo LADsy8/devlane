@@ -25,7 +25,8 @@ import type {
   ModuleApiResponse,
 } from '../api/types';
 import type { Priority } from '../types';
-import type { SavedViewDisplayPropertyId, SavedViewOrderBy } from '../lib/projectSavedViewDisplay';
+import type { SavedViewDisplayPropertyId } from '../lib/projectSavedViewDisplay';
+import { sortIssuesByOrder } from '../lib/issueListGroupAndSort';
 import { getImageUrl } from '../lib/utils';
 import { parseWorkspaceViewFiltersFromSearchParams } from '../types/workspaceViewFilters';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -45,56 +46,6 @@ const NONE_MODULE_KEY = '__no_module__';
 const NONE_LABEL_KEY = '__no_label__';
 const NONE_ASSIGNEE_KEY = '__no_assignee__';
 const NONE_CREATOR_KEY = '__no_creator__';
-
-const PRIORITY_RANK: Record<string, number> = {
-  urgent: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-  none: 4,
-};
-
-function sortIssuesList(list: IssueApiResponse[], orderBy: SavedViewOrderBy): IssueApiResponse[] {
-  const out = [...list];
-  switch (orderBy) {
-    case 'manual':
-      return out.sort((a, b) => {
-        const so = (a.sort_order ?? 0) - (b.sort_order ?? 0);
-        if (so !== 0) return so;
-        const seq = (a.sequence_id ?? 0) - (b.sequence_id ?? 0);
-        if (seq !== 0) return seq;
-        return a.name.localeCompare(b.name);
-      });
-    case 'last_created':
-      return out.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      );
-    case 'last_updated':
-      return out.sort(
-        (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
-      );
-    case 'start_date':
-      return out.sort((a, b) => {
-        const as = a.start_date ? new Date(a.start_date).getTime() : Infinity;
-        const bs = b.start_date ? new Date(b.start_date).getTime() : Infinity;
-        return as - bs;
-      });
-    case 'due_date':
-      return out.sort((a, b) => {
-        const ad = a.target_date ? new Date(a.target_date).getTime() : Infinity;
-        const bd = b.target_date ? new Date(b.target_date).getTime() : Infinity;
-        return ad - bd;
-      });
-    case 'priority':
-      return out.sort((a, b) => {
-        const pa = PRIORITY_RANK[a.priority ?? 'none'] ?? 99;
-        const pb = PRIORITY_RANK[b.priority ?? 'none'] ?? 99;
-        return pa - pb;
-      });
-    default:
-      return out;
-  }
-}
 
 function formatShortDate(iso: string | null | undefined): string | null {
   if (!iso?.trim()) return null;
@@ -482,7 +433,9 @@ export function ViewDetailPage() {
 
   const groupedSections: GroupedSections = useMemo(() => {
     const orderBy = settings.orderBy;
-    const sortIn = (arr: IssueApiResponse[]) => sortIssuesList([...arr], orderBy);
+    const orderDirection = settings.orderDirection;
+    const sortIn = (arr: IssueApiResponse[]) =>
+      sortIssuesByOrder([...arr], orderBy, orderDirection);
 
     const groupBy = settings.groupBy;
 
@@ -710,6 +663,7 @@ export function ViewDetailPage() {
     modules,
     settings.groupBy,
     settings.orderBy,
+    settings.orderDirection,
     sortedStates,
     states,
   ]);

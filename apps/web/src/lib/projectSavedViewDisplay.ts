@@ -31,10 +31,13 @@ export type SavedViewOrderBy =
   | 'due_date'
   | 'priority';
 
+export type SavedViewOrderDirection = 'asc' | 'desc';
+
 export interface SavedViewDisplaySettings {
   displayProperties: Set<SavedViewDisplayPropertyId>;
   groupBy: SavedViewGroupBy;
   orderBy: SavedViewOrderBy;
+  orderDirection: SavedViewOrderDirection;
   showSubWorkItems: boolean;
 }
 
@@ -58,6 +61,7 @@ export const DEFAULT_SAVED_VIEW_DISPLAY: SavedViewDisplaySettings = {
   displayProperties: new Set(ALL_SAVED_VIEW_DISPLAY_PROPERTIES),
   groupBy: 'states',
   orderBy: 'manual',
+  orderDirection: 'asc',
   showSubWorkItems: false,
 };
 
@@ -66,6 +70,7 @@ export function cloneDefaultSettings(): SavedViewDisplaySettings {
     displayProperties: new Set(DEFAULT_SAVED_VIEW_DISPLAY.displayProperties),
     groupBy: DEFAULT_SAVED_VIEW_DISPLAY.groupBy,
     orderBy: DEFAULT_SAVED_VIEW_DISPLAY.orderBy,
+    orderDirection: DEFAULT_SAVED_VIEW_DISPLAY.orderDirection,
     showSubWorkItems: DEFAULT_SAVED_VIEW_DISPLAY.showSubWorkItems,
   };
 }
@@ -78,8 +83,11 @@ export interface PersistedSavedViewDisplay {
   displayProperties: string[];
   groupBy: string;
   orderBy: string;
+  orderDirection: string;
   showSubWorkItems: boolean;
 }
+
+const ORDER_DIRECTIONS: SavedViewOrderDirection[] = ['asc', 'desc'];
 
 const GROUP_OPTIONS: SavedViewGroupBy[] = [
   'states',
@@ -119,10 +127,14 @@ export function parsePersistedSavedViewDisplay(
     const orderBy = ORDER_OPTIONS.includes(p.orderBy as SavedViewOrderBy)
       ? (p.orderBy as SavedViewOrderBy)
       : 'manual';
+    const orderDirection = ORDER_DIRECTIONS.includes(p.orderDirection as SavedViewOrderDirection)
+      ? (p.orderDirection as SavedViewOrderDirection)
+      : 'asc';
     return {
       displayProperties: props.size > 0 ? props : new Set(ALL_SAVED_VIEW_DISPLAY_PROPERTIES),
       groupBy,
       orderBy,
+      orderDirection,
       showSubWorkItems: Boolean(p.showSubWorkItems),
     };
   } catch {
@@ -135,6 +147,7 @@ export function serializeSettings(s: SavedViewDisplaySettings): string {
     displayProperties: [...s.displayProperties],
     groupBy: s.groupBy,
     orderBy: s.orderBy,
+    orderDirection: s.orderDirection,
     showSubWorkItems: s.showSubWorkItems,
   });
 }
