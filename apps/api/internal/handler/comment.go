@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/Devlaner/devlane/api/internal/middleware"
@@ -8,6 +9,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+// commentAccessNotFound reports whether err is one of the access/lookup errors
+// that should surface as a 404 to the client.
+func commentAccessNotFound(err error) bool {
+	return errors.Is(err, service.ErrCommentNotFound) ||
+		errors.Is(err, service.ErrProjectForbidden) ||
+		errors.Is(err, service.ErrProjectNotFound)
+}
 
 // CommentHandler serves issue comments.
 type CommentHandler struct {
@@ -209,7 +218,14 @@ func (h *CommentHandler) AddReaction(c *gin.Context) {
 	}
 	r, err := h.Comment.AddReaction(c.Request.Context(), slug, projectID, commentID, user.ID, body.Reaction)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		switch {
+		case errors.Is(err, service.ErrReactionExists):
+			c.JSON(http.StatusConflict, gin.H{"error": "Already reacted"})
+		case commentAccessNotFound(err):
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add reaction"})
+		}
 		return
 	}
 	c.JSON(http.StatusCreated, r)
@@ -240,6 +256,10 @@ func (h *CommentHandler) RemoveReaction(c *gin.Context) {
 		return
 	}
 	if err := h.Comment.RemoveReaction(c.Request.Context(), slug, projectID, commentID, user.ID, reaction); err != nil {
+		if commentAccessNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove reaction"})
 		return
 	}

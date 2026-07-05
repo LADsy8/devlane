@@ -8,6 +8,7 @@ import (
 	"github.com/Devlaner/devlane/api/internal/store"
 	"github.com/Devlaner/devlane/api/internal/text"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 var ErrCommentNotFound = errors.New("comment not found")
@@ -188,8 +189,10 @@ func (s *CommentService) AddReaction(ctx context.Context, workspaceSlug string, 
 		WorkspaceID: c.WorkspaceID,
 	}
 	if err := s.reactions.Add(ctx, r); err != nil {
-		// Unique-constraint violation = already reacted, return existing row.
-		// We don't bother fetching it; caller can refetch the list.
+		// Unique-constraint violation = the user already reacted with this emoji.
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil, ErrReactionExists
+		}
 		return nil, err
 	}
 	return r, nil
