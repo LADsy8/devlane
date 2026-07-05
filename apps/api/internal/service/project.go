@@ -101,7 +101,10 @@ func (s *ProjectService) Create(ctx context.Context, workspaceSlug, name, identi
 		Identifier:  identifier,
 		CreatedByID: &userID,
 	}
-	if err := s.ps.Create(ctx, p); err != nil {
+	// Create the project and the creator's admin membership together, so the
+	// creator can manage the project they just made even if they're only a
+	// regular workspace member.
+	if err := s.ps.CreateWithCreatorMember(ctx, p, userID, model.RoleAdmin); err != nil {
 		return nil, err
 	}
 	return p, nil

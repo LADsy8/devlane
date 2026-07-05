@@ -22,6 +22,24 @@ func (s *ProjectStore) Create(ctx context.Context, p *model.Project) error {
 	return s.db.WithContext(ctx).Create(p).Error
 }
 
+// CreateWithCreatorMember inserts a project and a project_members row for its
+// creator at the given role, in one transaction, so a project never exists
+// without its creator being able to manage it.
+func (s *ProjectStore) CreateWithCreatorMember(ctx context.Context, p *model.Project, creatorID uuid.UUID, role int16) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(p).Error; err != nil {
+			return err
+		}
+		member := &model.ProjectMember{
+			ProjectID:   p.ID,
+			WorkspaceID: p.WorkspaceID,
+			MemberID:    &creatorID,
+			Role:        role,
+		}
+		return tx.Create(member).Error
+	})
+}
+
 func (s *ProjectStore) GetByID(ctx context.Context, id uuid.UUID) (*model.Project, error) {
 	var p model.Project
 	err := s.db.WithContext(ctx).Where("id = ? AND deleted_at IS NULL", id).First(&p).Error
