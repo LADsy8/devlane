@@ -96,7 +96,7 @@ export function IssueLayoutCalendar({
 
         {/* Day cells */}
         {cells.map(({ date, inMonth }) => {
-          const key = isoDate(date.toISOString().slice(0, 10))!;
+          const key = localKey(date);
           const dayIssues = issuesByDate.map.get(key) ?? [];
           const isToday = sameDay(date, new Date(now));
           const visible = dayIssues.slice(0, MAX_PER_CELL);
@@ -203,12 +203,18 @@ function addMonths(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
 }
 
+// target_date/start_date arrive as a UTC-midnight ISO timestamp (or a bare
+// "YYYY-MM-DD"). The calendar day is the date portion itself; routing it through
+// a Date reads local components and shifts the day for non-UTC clients, so take
+// the leading date directly. Keys line up with the cell keys built by localKey.
 function isoDate(input: string | null | undefined): string | null {
   if (!input) return null;
-  // Accept "YYYY-MM-DD" or full ISO. Truncate to date only.
-  const t = Date.parse(input);
-  if (Number.isNaN(t)) return null;
-  const d = new Date(t);
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(input);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+}
+
+// Local calendar day (Y-M-D) of a Date built from local components.
+function localKey(d: Date): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
