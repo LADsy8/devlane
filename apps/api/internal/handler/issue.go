@@ -17,6 +17,14 @@ type IssueHandler struct {
 	Issue *service.IssueService
 }
 
+// invalidRelationError reports whether err is a rejected related-id error that
+// should surface as a 400 (bad state/label/parent/assignee for the scope).
+func invalidRelationError(err error) bool {
+	return err == service.ErrInvalidState || err == service.ErrInvalidLabel ||
+		err == service.ErrInvalidParent || err == service.ErrInvalidAssignee ||
+		err == service.ErrInvalidPriority
+}
+
 func issueID(c *gin.Context) (uuid.UUID, bool) {
 	idStr := c.Param("pk")
 	if idStr == "" {
@@ -197,6 +205,10 @@ func (h *IssueHandler) Create(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 			return
 		}
+		if invalidRelationError(err) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create issue"})
 		return
 	}
@@ -303,6 +315,10 @@ func (h *IssueHandler) Update(c *gin.Context) {
 	if err != nil {
 		if err == service.ErrIssueNotFound || err == service.ErrProjectForbidden {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Issue not found"})
+			return
+		}
+		if invalidRelationError(err) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update issue"})

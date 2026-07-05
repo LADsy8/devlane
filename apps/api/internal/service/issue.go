@@ -25,6 +25,11 @@ var (
 	ErrEpicHasChildren = errors.New("epic has child work items")
 	// ErrMoveSameProject is returned when a move targets the issue's current project.
 	ErrMoveSameProject = errors.New("issue already in target project")
+	// ErrInvalidLabel / ErrInvalidParent / ErrInvalidAssignee are returned when a
+	// related id supplied on create/update doesn't belong to the allowed scope.
+	ErrInvalidLabel    = errors.New("invalid label for project")
+	ErrInvalidParent   = errors.New("invalid parent for project")
+	ErrInvalidAssignee = errors.New("assignee is not a workspace member")
 )
 
 // validPriorities is the accepted set of work-item priority values.
@@ -41,7 +46,8 @@ type IssueService struct {
 	notify    *NotificationService        // optional — may be nil
 	subs      *store.IssueSubscriberStore // optional — auto-subscribe assignees/mentions
 	reactions *store.IssueReactionStore   // optional — per-issue emoji reactions
-	states    *store.StateStore           // optional — validates state ownership on bulk update
+	states    *store.StateStore           // optional — validates state ownership
+	labels    *store.LabelStore           // optional — validates label ownership
 }
 
 func NewIssueService(is *store.IssueStore, ps *store.ProjectStore, ws *store.WorkspaceStore) *IssueService {
@@ -63,8 +69,73 @@ func (s *IssueService) SetSubscriberStore(subs *store.IssueSubscriberStore) { s.
 // SetReactionStore wires per-issue emoji reactions support. Optional.
 func (s *IssueService) SetReactionStore(r *store.IssueReactionStore) { s.reactions = r }
 
-// SetStateStore wires state-ownership validation for bulk updates. Optional.
+// SetStateStore wires state-ownership validation. Optional.
 func (s *IssueService) SetStateStore(st *store.StateStore) { s.states = st }
+
+// SetLabelStore wires label-ownership validation. Optional.
+func (s *IssueService) SetLabelStore(l *store.LabelStore) { s.labels = l }
+
+// validateRelations rejects related ids that fall outside the allowed scope:
+// state and labels must belong to the same project, a parent must be another
+// issue in the same project (and never the issue itself — pass selfID on
+// update; uuid.Nil on create), and assignees must be members of the workspace.
+// Only the provided (non-nil / non-empty) fields are checked. Ownership stores
+// are optional; when one isn't wired the corresponding check is skipped. A
+// genuine "not found" maps to the invalid-* sentinel, but any other datastore
+// error is returned so query failures surface as 5xx, not 400.
+func (s *IssueService) validateRelations(ctx context.Context, projectID, workspaceID, selfID uuid.UUID, stateID *uuid.UUID, labelIDs []uuid.UUID, assigneeIDs []uuid.UUID, parentID *uuid.UUID) error {
+	if stateID != nil && s.states != nil {
+		st, err := s.states.GetByID(ctx, *stateID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrInvalidState
+		}
+		if err != nil {
+			return err
+		}
+		if st == nil || st.ProjectID != projectID {
+			return ErrInvalidState
+		}
+	}
+	if len(labelIDs) > 0 && s.labels != nil {
+		for _, id := range labelIDs {
+			l, err := s.labels.GetByID(ctx, id)
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrInvalidLabel
+			}
+			if err != nil {
+				return err
+			}
+			if l == nil || l.ProjectID == nil || *l.ProjectID != projectID {
+				return ErrInvalidLabel
+			}
+		}
+	}
+	if parentID != nil {
+		if *parentID == selfID {
+			return ErrInvalidParent // an issue can't be its own parent
+		}
+		parent, err := s.is.GetByID(ctx, *parentID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrInvalidParent
+		}
+		if err != nil {
+			return err
+		}
+		if parent == nil || parent.ProjectID != projectID {
+			return ErrInvalidParent
+		}
+	}
+	for _, id := range assigneeIDs {
+		ok, err := s.ws.IsMember(ctx, workspaceID, id)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return ErrInvalidAssignee
+		}
+	}
+	return nil
+}
 
 // autoSubscribe is a fire-and-forget helper used by the assignee and mention
 // hooks. Errors are logged-and-ignored — the user's primary action must not
@@ -474,6 +545,9 @@ func (s *IssueService) Create(ctx context.Context, workspaceSlug string, project
 		return nil, err
 	}
 	wrk, _ := s.ws.GetBySlug(ctx, workspaceSlug)
+	if err := s.validateRelations(ctx, projectID, wrk.ID, uuid.Nil, stateID, labelIDs, assigneeIDs, parentID); err != nil {
+		return nil, err
+	}
 	issue := &model.Issue{
 		Name:        name,
 		ProjectID:   projectID,
@@ -546,6 +620,18 @@ func (s *IssueService) Create(ctx context.Context, workspaceSlug string, project
 func (s *IssueService) Update(ctx context.Context, workspaceSlug string, projectID, issueID uuid.UUID, userID uuid.UUID, name, priority, description *string, stateID *uuid.UUID, assigneeIDs, labelIDs *[]uuid.UUID, startDateSet bool, startDate *time.Time, targetDateSet bool, targetDate *time.Time, parentID *uuid.UUID, isDraft *bool, issueType *string, estimatePointIDSet bool, estimatePointID *uuid.UUID, sortOrder *float64) (*model.Issue, error) {
 	issue, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID)
 	if err != nil {
+		return nil, err
+	}
+
+	// Reject related ids outside the allowed scope before touching anything.
+	var wantAssignees, wantLabels []uuid.UUID
+	if assigneeIDs != nil {
+		wantAssignees = *assigneeIDs
+	}
+	if labelIDs != nil {
+		wantLabels = *labelIDs
+	}
+	if err := s.validateRelations(ctx, issue.ProjectID, issue.WorkspaceID, issue.ID, stateID, wantLabels, wantAssignees, parentID); err != nil {
 		return nil, err
 	}
 

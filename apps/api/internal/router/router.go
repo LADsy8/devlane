@@ -161,6 +161,7 @@ func New(cfg Config) *gin.Engine {
 	issueReactionStore := store.NewIssueReactionStore(cfg.DB)
 	issueSvc.SetReactionStore(issueReactionStore)
 	issueSvc.SetStateStore(stateStore)
+	issueSvc.SetLabelStore(labelStore)
 	commentReactionStore := store.NewCommentReactionStore(cfg.DB)
 	commentSvc := service.NewCommentService(commentStore, issueStore, projectStore, workspaceStore)
 	commentSvc.SetReactionStore(commentReactionStore)
