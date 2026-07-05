@@ -56,6 +56,8 @@ func translatePageError(c *gin.Context, err error, fallback string) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid parent page"})
 	case errors.Is(err, service.ErrPageBadRequest):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+	case errors.Is(err, service.ErrPageSameProject):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Page is already in that project"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fallback})
 	}
@@ -349,6 +351,38 @@ func (h *PageHandler) Duplicate(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, page)
+}
+
+// Move relinks a page and its subtree to another project.
+// POST /api/workspaces/:slug/pages/:pageId/move/
+func (h *PageHandler) Move(c *gin.Context) {
+	userID, ok := h.requireUser(c)
+	if !ok {
+		return
+	}
+	slug := c.Param("slug")
+	pageID, ok := parsePageID(c)
+	if !ok {
+		return
+	}
+	var body struct {
+		TargetProjectID string `json:"target_project_id"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.TargetProjectID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target_project_id is required"})
+		return
+	}
+	targetID, err := uuid.Parse(body.TargetProjectID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target project ID"})
+		return
+	}
+	page, err := h.Page.Move(c.Request.Context(), slug, pageID, userID, targetID)
+	if err != nil {
+		translatePageError(c, err, "Failed to move page")
+		return
+	}
+	c.JSON(http.StatusOK, page)
 }
 
 // ListVersions / GetVersion / RestoreVersion

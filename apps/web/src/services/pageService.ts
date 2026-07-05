@@ -109,6 +109,18 @@ export const pageService = {
     return data;
   },
 
+  async move(
+    workspaceSlug: string,
+    pageId: string,
+    targetProjectId: string,
+  ): Promise<PageApiResponse> {
+    const { data } = await apiClient.post<PageApiResponse>(
+      `${base(workspaceSlug)}/${encodeURIComponent(pageId)}/move/`,
+      { target_project_id: targetProjectId },
+    );
+    return data;
+  },
+
   async listVersions(workspaceSlug: string, pageId: string): Promise<PageVersionApiResponse[]> {
     const { data } = await apiClient.get<PageVersionApiResponse[]>(
       `${base(workspaceSlug)}/${encodeURIComponent(pageId)}/versions/`,

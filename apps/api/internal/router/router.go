@@ -425,6 +425,7 @@ func New(cfg Config) *gin.Engine {
 		api.POST("/workspaces/:slug/pages/:pageId/archive/", pageHandler.Archive)
 		api.DELETE("/workspaces/:slug/pages/:pageId/archive/", pageHandler.Unarchive)
 		api.POST("/workspaces/:slug/pages/:pageId/duplicate/", pageHandler.Duplicate)
+		api.POST("/workspaces/:slug/pages/:pageId/move/", pageHandler.Move)
 		api.GET("/workspaces/:slug/pages/:pageId/versions/", pageHandler.ListVersions)
 		api.GET("/workspaces/:slug/pages/:pageId/versions/:versionId/", pageHandler.GetVersion)
 		api.POST("/workspaces/:slug/pages/:pageId/versions/:versionId/restore/", pageHandler.RestoreVersion)

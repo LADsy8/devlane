@@ -6,6 +6,7 @@ import {
   Copy,
   ExternalLink,
   FileText,
+  FolderInput,
   History,
   Link2,
   ListTree,
@@ -101,6 +102,11 @@ export function PageDetailPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveProjects, setMoveProjects] = useState<ProjectApiResponse[]>([]);
+  const [moveLoading, setMoveLoading] = useState(false);
+  const [moveSubmitting, setMoveSubmitting] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
 
   const titleSaveTimer = useRef<number | null>(null);
   const bodySaveTimer = useRef<number | null>(null);
@@ -438,6 +444,41 @@ export function PageDetailPage() {
     }
   };
 
+  const openMove = async () => {
+    if (!workspaceSlug) return;
+    setOptionsOpen(false);
+    setMoveOpen(true);
+    setMoveError(null);
+    setMoveLoading(true);
+    try {
+      const list = await projectService.list(workspaceSlug);
+      setMoveProjects(list.filter((p) => p.id !== projectId));
+    } catch {
+      setMoveError('Failed to load projects.');
+    } finally {
+      setMoveLoading(false);
+    }
+  };
+
+  const onMove = async (targetProjectId: string) => {
+    if (!workspaceSlug || !page) return;
+    setMoveSubmitting(true);
+    setMoveError(null);
+    try {
+      await pageService.move(workspaceSlug, page.id, targetProjectId);
+      setMoveOpen(false);
+      navigate(`/${workspaceSlug}/projects/${targetProjectId}/pages/${page.id}`);
+    } catch (err) {
+      const apiError =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+          : null;
+      setMoveError(apiError ?? 'Failed to move page.');
+    } finally {
+      setMoveSubmitting(false);
+    }
+  };
+
   const onCopyLink = async () => {
     if (!page) return;
     const url = window.location.href;
@@ -589,6 +630,15 @@ export function PageDetailPage() {
             >
               <Copy size={13} /> Make a copy
             </button>
+            {canEditMeta && !isArchived ? (
+              <button
+                type="button"
+                onClick={() => void openMove()}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-(--txt-primary) hover:bg-(--bg-layer-1-hover)"
+              >
+                <FolderInput size={13} /> Move to project
+              </button>
+            ) : null}
             {canEditMeta && !isArchived ? (
               <button
                 type="button"
@@ -874,6 +924,46 @@ export function PageDetailPage() {
               className="prose prose-sm max-h-[60vh] max-w-none overflow-y-auto rounded border border-(--border-subtle) bg-(--bg-canvas) p-3 text-(--txt-primary)"
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewVersion.description_html) }}
             />
+          </div>
+        </Modal>
+      ) : null}
+
+      {moveOpen ? (
+        <Modal open onClose={() => setMoveOpen(false)} title="Move page to project">
+          <div className="max-w-md space-y-3">
+            <p className="text-sm text-(--txt-tertiary)">
+              The page and its sub-pages move to the project you choose.
+            </p>
+            {moveError ? (
+              <p className="rounded-(--radius-md) bg-(--bg-danger-subtle) px-3 py-2 text-sm text-(--txt-danger)">
+                {moveError}
+              </p>
+            ) : null}
+            {moveLoading ? (
+              <p className="py-6 text-center text-sm text-(--txt-tertiary)">Loading projects…</p>
+            ) : moveProjects.length === 0 ? (
+              <p className="py-6 text-center text-sm text-(--txt-tertiary)">
+                No other projects available.
+              </p>
+            ) : (
+              <ul className="max-h-72 space-y-1 overflow-y-auto">
+                {moveProjects.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      disabled={moveSubmitting}
+                      onClick={() => void onMove(p.id)}
+                      className="flex w-full items-center gap-2 rounded-(--radius-md) px-3 py-2 text-left text-sm text-(--txt-primary) transition-colors hover:bg-(--bg-layer-1-hover) disabled:opacity-50"
+                    >
+                      <span className="shrink-0 rounded-(--radius-sm) bg-(--bg-layer-2) px-1.5 py-0.5 text-xs font-medium text-(--txt-secondary)">
+                        {p.identifier ?? p.id.slice(0, 8)}
+                      </span>
+                      <span className="truncate">{p.name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </Modal>
       ) : null}

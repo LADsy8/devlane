@@ -18,6 +18,7 @@ var (
 	ErrPageNotArchived = errors.New("page must be archived before deletion")
 	ErrPageBadParent   = errors.New("invalid parent page")
 	ErrPageBadRequest  = errors.New("invalid page request")
+	ErrPageSameProject = errors.New("page already in target project")
 )
 
 // PageService handles page business logic and permission gating.
@@ -313,6 +314,35 @@ func (s *PageService) UpdateMeta(ctx context.Context, workspaceSlug string, page
 		return nil, err
 	}
 	return page, nil
+}
+
+// Move relinks a page and its subtree to another project in the same workspace.
+// The caller must be able to edit the page's meta and reach the target project.
+func (s *PageService) Move(ctx context.Context, workspaceSlug string, pageID, userID, targetProjectID uuid.UUID) (*model.Page, error) {
+	page, isMember, err := s.loadAndCheckView(ctx, workspaceSlug, pageID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !canEditMeta(page, userID, isMember) {
+		return nil, ErrPageReadOnly
+	}
+	if page.ArchivedAt != nil {
+		return nil, ErrPageArchived
+	}
+	if err := s.ensureProjectAccess(ctx, workspaceSlug, targetProjectID, userID); err != nil {
+		return nil, err
+	}
+	projectIDs, err := s.pageStore.ListProjectIDsForPage(ctx, pageID)
+	if err != nil {
+		return nil, err
+	}
+	if len(projectIDs) == 1 && projectIDs[0] == targetProjectID {
+		return nil, ErrPageSameProject
+	}
+	if err := s.pageStore.MoveTreeToProject(ctx, pageID, targetProjectID, page.WorkspaceID, userID); err != nil {
+		return nil, err
+	}
+	return s.pageStore.GetByID(ctx, pageID)
 }
 
 // validateParent rejects parents that would corrupt the tree:

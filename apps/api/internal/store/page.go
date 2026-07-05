@@ -273,6 +273,62 @@ func (s *PageStore) RemoveProjectPage(ctx context.Context, projectID, pageID uui
 		Delete(&model.ProjectPage{}).Error
 }
 
+// collectPageSubtree returns rootID followed by every descendant id, walking the
+// parent_id tree iteratively so it works on any dialect.
+func collectPageSubtree(ctx context.Context, tx *gorm.DB, rootID uuid.UUID) ([]uuid.UUID, error) {
+	ids := []uuid.UUID{rootID}
+	queue := []uuid.UUID{rootID}
+	for len(queue) > 0 {
+		parent := queue[0]
+		queue = queue[1:]
+		var childIDs []uuid.UUID
+		if err := tx.WithContext(ctx).Model(&model.Page{}).
+			Where("parent_id = ? AND deleted_at IS NULL", parent).
+			Pluck("id", &childIDs).Error; err != nil {
+			return nil, err
+		}
+		ids = append(ids, childIDs...)
+		queue = append(queue, childIDs...)
+	}
+	return ids, nil
+}
+
+// MoveTreeToProject moves a page and its whole subtree into targetProjectID: it
+// detaches the root from any parent and replaces every affected page's
+// project_pages link with a single link to the target. Links are hard deleted
+// because project_pages has a (project_id, page_id) unique constraint that
+// ignores soft-delete, so a lingering soft-deleted row would block re-linking.
+func (s *PageStore) MoveTreeToProject(ctx context.Context, rootID, targetProjectID, workspaceID, userID uuid.UUID) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		ids, err := collectPageSubtree(ctx, tx, rootID)
+		if err != nil {
+			return err
+		}
+		if err := tx.Model(&model.Page{}).Where("id = ?", rootID).
+			Updates(map[string]any{"parent_id": nil, "updated_by_id": userID}).Error; err != nil {
+			return err
+		}
+		if err := tx.Unscoped().Where("page_id IN ?", ids).Delete(&model.ProjectPage{}).Error; err != nil {
+			return err
+		}
+		links := make([]model.ProjectPage, 0, len(ids))
+		for _, id := range ids {
+			cb := userID
+			links = append(links, model.ProjectPage{
+				ProjectID:   targetProjectID,
+				PageID:      id,
+				WorkspaceID: workspaceID,
+				CreatedByID: &cb,
+			})
+		}
+		if err := tx.Create(&links).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.Page{}).Where("id IN ?", ids).
+			Update("updated_by_id", userID).Error
+	})
+}
+
 // ----- Page versions -----
 
 func (s *PageStore) CreateVersion(ctx context.Context, v *model.PageVersion) error {
