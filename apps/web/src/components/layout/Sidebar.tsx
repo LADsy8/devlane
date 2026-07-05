@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation, useParams } from 'react-router-dom';
 import { workspaceService } from '../../services/workspaceService';
@@ -559,8 +559,24 @@ export function Sidebar() {
     };
   }, [slugForProjects]);
 
+  // Only the projects that actually have starred modules, as a stable string.
+  // Keying the fetch effect on this (instead of the whole projects array) stops
+  // the per-project module fetches from re-running every time projects is
+  // replaced with a fresh array on workspace load.
+  const moduleFavProjectIds = useMemo(() => {
+    if (!workspaceSlug) return '';
+    return projects
+      .map((p) => p.id)
+      .filter((id) => loadModuleFavoriteIds(workspaceSlug, id).length > 0)
+      .sort()
+      .join(',');
+    // moduleFavoritesNonce forces a recompute after a toggle mutates the
+    // (non-reactive) localStorage the filter reads from.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceSlug, projects, loadModuleFavoriteIds, moduleFavoritesNonce]);
+
   useEffect(() => {
-    if (!workspaceSlug) {
+    if (!workspaceSlug || !moduleFavProjectIds) {
       setFavoriteModules([]);
       return;
     }
@@ -568,14 +584,14 @@ export function Sidebar() {
     let cancelled = false;
     const run = async () => {
       const entries: Array<{ projectId: string; module: ModuleApiResponse }> = [];
-      for (const proj of projects) {
-        const favIds = loadModuleFavoriteIds(workspaceSlug, proj.id);
+      for (const projectId of moduleFavProjectIds.split(',')) {
+        const favIds = loadModuleFavoriteIds(workspaceSlug, projectId);
         if (!favIds.length) continue;
-        const mods = await moduleService.list(workspaceSlug, proj.id);
+        const mods = await moduleService.list(workspaceSlug, projectId);
         const favSet = new Set(favIds);
         for (const m of mods ?? []) {
           if (favSet.has(m.id)) {
-            entries.push({ projectId: proj.id, module: m });
+            entries.push({ projectId, module: m });
           }
         }
       }
@@ -585,29 +601,34 @@ export function Sidebar() {
     return () => {
       cancelled = true;
     };
-  }, [workspaceSlug, projects, loadModuleFavoriteIds, moduleFavoritesNonce]);
+  }, [workspaceSlug, moduleFavProjectIds, moduleFavoritesNonce, loadModuleFavoriteIds]);
+
+  const cycleFavProjectIds = useMemo(() => {
+    if (!workspaceSlug) return '';
+    return projects
+      .map((p) => p.id)
+      .filter((id) => loadCycleFavoriteIds(workspaceSlug, id).length > 0)
+      .sort()
+      .join(',');
+    // cycleFavoritesNonce forces a recompute after a toggle mutates the
+    // (non-reactive) localStorage the filter reads from.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceSlug, projects, loadCycleFavoriteIds, cycleFavoritesNonce]);
 
   useEffect(() => {
-    if (!workspaceSlug) {
+    if (!workspaceSlug || !cycleFavProjectIds) {
       setFavoriteCycles([]);
       return;
     }
     let cancelled = false;
     const run = async () => {
-      const projectsWithFavs = projects
-        .map((proj) => ({
-          proj,
-          favIds: loadCycleFavoriteIds(workspaceSlug, proj.id),
-        }))
-        .filter(({ favIds }) => favIds.length > 0);
-
       const results = await Promise.all(
-        projectsWithFavs.map(async ({ proj, favIds }) => {
-          const cycles = await cycleService.list(workspaceSlug, proj.id);
-          const favSet = new Set(favIds);
+        cycleFavProjectIds.split(',').map(async (projectId) => {
+          const favSet = new Set(loadCycleFavoriteIds(workspaceSlug, projectId));
+          const cycles = await cycleService.list(workspaceSlug, projectId);
           return (cycles ?? [])
             .filter((c) => favSet.has(c.id))
-            .map((c) => ({ projectId: proj.id, cycle: c }));
+            .map((c) => ({ projectId, cycle: c }));
         }),
       );
       const entries = results.flat();
@@ -617,7 +638,7 @@ export function Sidebar() {
     return () => {
       cancelled = true;
     };
-  }, [workspaceSlug, projects, loadCycleFavoriteIds, cycleFavoritesNonce]);
+  }, [workspaceSlug, cycleFavProjectIds, cycleFavoritesNonce, loadCycleFavoriteIds]);
 
   useEffect(() => {
     if (!workspaceSlug) {
