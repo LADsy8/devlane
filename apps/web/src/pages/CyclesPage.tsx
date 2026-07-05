@@ -466,6 +466,10 @@ export function CyclesPage() {
           setIssues(iss ?? []);
         })
         .catch(() => {});
+      cycleService
+        .listProgress(workspaceSlug, projectId)
+        .then(setCycleProgress)
+        .catch(() => setCycleProgress({}));
     };
     window.addEventListener(PROJECT_CYCLES_REFRESH_EVENT, handler as EventListener);
     return () => window.removeEventListener(PROJECT_CYCLES_REFRESH_EVENT, handler as EventListener);
