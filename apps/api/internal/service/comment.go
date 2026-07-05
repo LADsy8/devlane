@@ -22,6 +22,7 @@ type CommentService struct {
 	reactions *store.CommentReactionStore // optional — set via SetReactionStore
 	notify    *NotificationService        // optional — set via SetNotificationService
 	subs      *store.IssueSubscriberStore // optional — auto-subscribe commenter & mentions
+	activity  *store.IssueActivityStore   // optional — records comment add/edit/delete on the issue
 }
 
 func NewCommentService(cs *store.CommentStore, is *store.IssueStore, ps *store.ProjectStore, ws *store.WorkspaceStore) *CommentService {
@@ -38,6 +39,10 @@ func (s *CommentService) SetNotificationService(n *NotificationService) { s.noti
 // SetSubscriberStore injects the issue-subscriber store so commenters and
 // mention targets are auto-subscribed when a comment is posted. Optional.
 func (s *CommentService) SetSubscriberStore(subs *store.IssueSubscriberStore) { s.subs = subs }
+
+// SetActivityStore wires the issue-activity store so comment add/edit/delete
+// show up in the work-item history. Optional.
+func (s *CommentService) SetActivityStore(a *store.IssueActivityStore) { s.activity = a }
 
 func (s *CommentService) autoSubscribe(ctx context.Context, issue *model.Issue, userIDs []uuid.UUID) {
 	if s.subs == nil || issue == nil {
@@ -117,6 +122,7 @@ func (s *CommentService) Create(ctx context.Context, workspaceSlug string, proje
 	if s.notify != nil {
 		s.notify.IssueCommented(ctx, issue, userID, comment, mentioned)
 	}
+	recordIssueActivity(ctx, s.activity, issue, userID, "comment_added", "", "")
 	return c, nil
 }
 
@@ -146,6 +152,9 @@ func (s *CommentService) Update(ctx context.Context, workspaceSlug string, proje
 	if err := s.cs.Update(ctx, c); err != nil {
 		return nil, err
 	}
+	if issue, err := s.is.GetByID(ctx, c.IssueID); err == nil {
+		recordIssueActivity(ctx, s.activity, issue, userID, "comment_updated", "", "")
+	}
 	return c, nil
 }
 
@@ -157,7 +166,13 @@ func (s *CommentService) Delete(ctx context.Context, workspaceSlug string, proje
 	if c.CreatedByID == nil || *c.CreatedByID != userID {
 		return ErrCommentNotFound
 	}
-	return s.cs.Delete(ctx, commentID)
+	if err := s.cs.Delete(ctx, commentID); err != nil {
+		return err
+	}
+	if issue, err := s.is.GetByID(ctx, c.IssueID); err == nil {
+		recordIssueActivity(ctx, s.activity, issue, userID, "comment_removed", "", "")
+	}
+	return nil
 }
 
 // ListReactions returns all reactions on a comment after auth-checking.
