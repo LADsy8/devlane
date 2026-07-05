@@ -84,6 +84,40 @@ func TestEpic_IssuesChild(t *testing.T) {
 	assert.Contains(t, rr3.Body.String(), issue.ID.String())
 }
 
+func TestEpic_RemoveIssue(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	w := testutil.SeedWorld(t, ts.DB)
+	base := epicBase(w.Workspace.Slug, w.Project.ID.String())
+
+	// Create an epic and a child issue, and link them.
+	rr := ts.POST(base, map[string]any{"name": "Parent epic"}, w.Session)
+	require.Equal(t, http.StatusCreated, rr.Code)
+	epicID, _ := testutil.MustJSONMap(t, rr)["id"].(string)
+	issue := testutil.CreateIssue(t, ts.DB, w.Project.ID, w.Workspace.ID, w.User.ID)
+	require.Equal(
+		t,
+		http.StatusNoContent,
+		ts.POST(base+epicID+"/issues/", map[string]any{"issue_id": issue.ID.String()}, w.Session).Code,
+	)
+
+	del := base + epicID + "/issues/" + issue.ID.String() + "/"
+
+	// Requires authentication.
+	require.Equal(t, http.StatusUnauthorized, ts.DELETE(del, "").Code)
+
+	// An unparseable issue id is a bad request.
+	require.Equal(t, http.StatusBadRequest, ts.DELETE(base+epicID+"/issues/not-a-uuid/", w.Session).Code)
+
+	// Removing the child succeeds and detaches it from the epic.
+	require.Equal(t, http.StatusNoContent, ts.DELETE(del, w.Session).Code)
+	list := ts.GET(base+epicID+"/issues/", w.Session)
+	require.Equal(t, http.StatusOK, list.Code)
+	assert.NotContains(t, list.Body.String(), issue.ID.String())
+
+	// Removing an issue that is not (or no longer) a child returns not found.
+	require.Equal(t, http.StatusNotFound, ts.DELETE(del, w.Session).Code)
+}
+
 func TestEpic_NonMember404(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 	w := testutil.SeedWorld(t, ts.DB)

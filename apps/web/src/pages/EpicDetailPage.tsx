@@ -274,7 +274,7 @@ export function EpicDetailPage() {
                               setError('Failed to remove issue from epic.');
                             }
                           }}
-                          className="text-sm text-(--txt-tertiary) opacity-0 group-hover:opacity-100 hover:text-(--txt-danger-primary)"
+                          className="rounded-(--radius-sm) text-sm text-(--txt-tertiary) opacity-0 group-hover:opacity-100 hover:text-(--txt-danger-primary) focus-visible:text-(--txt-danger-primary) focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-(--border-focus)"
                         >
                           ×
                         </button>
