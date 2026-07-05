@@ -1,4 +1,5 @@
 import axios, { type AxiosError } from 'axios';
+import { dispatchAuthUnauthorized } from '../lib/authEvents';
 
 /**
  * Prefer env-driven API base (VITE_API_BASE_URL).
@@ -108,6 +109,14 @@ export function getApiErrorMessage(err: unknown): string {
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiErrorResponse>) => {
+    // A 401 outside the auth endpoints means the session expired mid-use. Signal
+    // the app to drop it so the user lands on /login instead of a page where
+    // every request fails. Auth endpoints (wrong password, invalid magic code)
+    // also return 401, but their own forms handle that.
+    const url = error.config?.url ?? '';
+    if (error.response?.status === 401 && !url.includes('/auth/')) {
+      dispatchAuthUnauthorized();
+    }
     // Attach a user-facing message but keep rejecting the original AxiosError so
     // callers can still branch on error.response / error.response.status /
     // error.response.data. Replacing it with a bare Error dropped those fields.

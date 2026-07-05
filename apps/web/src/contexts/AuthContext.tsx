@@ -12,6 +12,7 @@ import type { User } from '../types';
 import type { UserApiResponse } from '../api/types';
 import { apiClient, clearApiBearerAuthHeader } from '../api/client';
 import { authService } from '../services/authService';
+import { AUTH_UNAUTHORIZED } from '../lib/authEvents';
 
 function mapApiUserToUser(api: UserApiResponse): User {
   const name =
@@ -65,6 +66,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    // A 401 from any API call fires this. The server session is already gone, so
+    // just clear the client user and let ProtectedRoute redirect to /login.
+    // Don't call signOut here — that request would 401 as well.
+    const handleUnauthorized = () => {
+      clearApiBearerAuthHeader();
+      setUser(null);
+    };
+    window.addEventListener(AUTH_UNAUTHORIZED, handleUnauthorized);
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED, handleUnauthorized);
   }, []);
 
   const setUserFromApi = useCallback((api: UserApiResponse) => {
