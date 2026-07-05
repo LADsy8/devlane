@@ -108,7 +108,10 @@ export function getApiErrorMessage(err: unknown): string {
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiErrorResponse>) => {
-    const message = getApiErrorMessage(error);
-    return Promise.reject(new Error(message));
+    // Attach a user-facing message but keep rejecting the original AxiosError so
+    // callers can still branch on error.response / error.response.status /
+    // error.response.data. Replacing it with a bare Error dropped those fields.
+    error.message = getApiErrorMessage(error);
+    return Promise.reject(error);
   },
 );
