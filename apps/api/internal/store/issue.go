@@ -162,10 +162,19 @@ func (s *IssueStore) UpdateFields(ctx context.Context, issueID uuid.UUID, fields
 	if len(fields) == 0 {
 		return nil
 	}
-	return s.db.WithContext(ctx).
+	res := s.db.WithContext(ctx).
 		Model(&model.Issue{}).
 		Where("id = ? AND deleted_at IS NULL", issueID).
-		Updates(fields).Error
+		Updates(fields)
+	if res.Error != nil {
+		return res.Error
+	}
+	// No matching live row means the issue was deleted since it was loaded; surface
+	// that instead of silently reporting success.
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (s *IssueStore) Delete(ctx context.Context, id uuid.UUID) error {

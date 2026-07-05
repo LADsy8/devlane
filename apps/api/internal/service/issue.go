@@ -695,6 +695,10 @@ func (s *IssueService) Update(ctx context.Context, workspaceSlug string, project
 	}
 	issue.UpdatedByID = &userID
 	if err := s.is.UpdateFields(ctx, issue.ID, changed); err != nil {
+		// The issue was deleted between the load above and this write.
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrIssueNotFound
+		}
 		return nil, err
 	}
 

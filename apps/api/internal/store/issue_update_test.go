@@ -8,7 +8,9 @@ import (
 	"github.com/Devlaner/devlane/api/internal/model"
 	"github.com/Devlaner/devlane/api/internal/store"
 	"github.com/Devlaner/devlane/api/internal/testutil"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // Two writers hold the same snapshot and each change a different field. With a
@@ -57,4 +59,13 @@ func TestIssueStore_UpdateFields_NilClearsColumn(t *testing.T) {
 	var afterClear model.Issue
 	require.NoError(t, db.First(&afterClear, "id = ?", issue.ID).Error)
 	require.Nil(t, afterClear.TargetDate)
+}
+
+// Updating a non-existent (or already-deleted) issue must not silently succeed.
+func TestIssueStore_UpdateFields_ReturnsNotFoundWhenMissing(t *testing.T) {
+	db := testutil.NewTestServer(t).DB
+	is := store.NewIssueStore(db)
+
+	err := is.UpdateFields(context.Background(), uuid.New(), map[string]any{"priority": "urgent"})
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
