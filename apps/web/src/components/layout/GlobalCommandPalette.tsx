@@ -639,6 +639,10 @@ export function GlobalCommandPalette({
                           type="button"
                           role="option"
                           aria-selected={active}
+                          // Keep keyboard focus on the input so its arrow/Enter
+                          // handlers and the aria-activedescendant model stay in
+                          // control; Tab must not land on the options.
+                          tabIndex={-1}
                           ref={(el) => {
                             if (el) itemRefs.current.set(cmd.id, el);
                             else itemRefs.current.delete(cmd.id);
