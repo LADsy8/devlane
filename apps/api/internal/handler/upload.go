@@ -11,6 +11,7 @@ import (
 
 	"github.com/Devlaner/devlane/api/internal/middleware"
 	"github.com/Devlaner/devlane/api/internal/minio"
+	"github.com/Devlaner/devlane/api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -18,6 +19,9 @@ import (
 // UploadHandler handles file uploads to MinIO.
 type UploadHandler struct {
 	Minio *minio.Client
+	// Attachments authorizes downloads of attachment objects. Optional: when
+	// nil, attachment paths are refused (they can't be safely served).
+	Attachments *service.AttachmentService
 }
 
 var allowedImageTypes = map[string]bool{
@@ -112,6 +116,21 @@ func isServableObjectPath(path string) bool {
 	return strings.HasPrefix(path, "uploads/") || strings.HasPrefix(path, "attachments/")
 }
 
+// parseAttachmentPath extracts the issue and asset ids from an object path of the
+// form "attachments/<issueID>/<assetID>".
+func parseAttachmentPath(path string) (issueID, assetID uuid.UUID, ok bool) {
+	parts := strings.Split(path, "/")
+	if len(parts) != 3 || parts[0] != "attachments" {
+		return uuid.Nil, uuid.Nil, false
+	}
+	iid, err1 := uuid.Parse(parts[1])
+	aid, err2 := uuid.Parse(parts[2])
+	if err1 != nil || err2 != nil {
+		return uuid.Nil, uuid.Nil, false
+	}
+	return iid, aid, true
+}
+
 func (h *UploadHandler) ServeFile(c *gin.Context) {
 	if h.Minio == nil {
 		c.Status(http.StatusServiceUnavailable)
@@ -121,6 +140,31 @@ func (h *UploadHandler) ServeFile(c *gin.Context) {
 	if !isServableObjectPath(path) {
 		c.Status(http.StatusBadRequest)
 		return
+	}
+
+	// Attachment objects are per-issue, so authorize the caller against the
+	// attachment's workspace before streaming — otherwise a leaked object URL
+	// would be fetchable by anyone signed in. A 404 is returned for both missing
+	// and forbidden so we don't reveal which attachments exist.
+	if strings.HasPrefix(path, "attachments/") {
+		if h.Attachments == nil {
+			c.Status(http.StatusServiceUnavailable)
+			return
+		}
+		user := middleware.GetUser(c)
+		if user == nil {
+			c.Status(http.StatusUnauthorized)
+			return
+		}
+		issueID, assetID, ok := parseAttachmentPath(path)
+		if !ok {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		if err := h.Attachments.AuthorizeDownload(c.Request.Context(), issueID, assetID, user.ID); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
 	}
 
 	obj, err := h.Minio.GetObject(c.Request.Context(), path)

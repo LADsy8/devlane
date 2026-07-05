@@ -264,7 +264,7 @@ func New(cfg Config) *gin.Engine {
 		api.POST("/instance/admins/", instanceSettingsHandler.AddAdmin)
 		api.DELETE("/instance/admins/:id/", instanceSettingsHandler.RemoveAdmin)
 
-		uploadHandler := &handler.UploadHandler{Minio: cfg.Minio}
+		uploadHandler := &handler.UploadHandler{Minio: cfg.Minio, Attachments: attachmentSvc}
 		api.POST("/upload", uploadHandler.Upload)
 		api.GET("/files/*path", uploadHandler.ServeFile)
 		api.GET("/users/me/workspaces/", workspaceHandler.List)
