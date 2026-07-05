@@ -207,7 +207,9 @@ export function GlobalCommandPalette({
         icon: <LogOut className="size-[15px] shrink-0 opacity-90" strokeWidth={2} />,
         run: () =>
           runAndClose(() => {
-            void logout();
+            void logout().catch((err: unknown) => {
+              console.error('Sign out failed', err);
+            });
           }),
       },
       {
