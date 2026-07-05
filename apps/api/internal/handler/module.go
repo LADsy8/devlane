@@ -128,6 +128,10 @@ func (h *ModuleHandler) Create(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 			return
 		}
+		if err == service.ErrInvalidModuleDates {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create module"})
 		return
 	}
@@ -223,6 +227,10 @@ func (h *ModuleHandler) Update(c *gin.Context) {
 	if err != nil {
 		if err == service.ErrModuleNotFound || err == service.ErrProjectForbidden || err == service.ErrProjectNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+			return
+		}
+		if err == service.ErrInvalidModuleDates {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update module"})
