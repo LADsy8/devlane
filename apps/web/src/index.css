@@ -240,6 +240,13 @@
   border-top: 1px solid var(--border-subtle);
   margin: 1rem 0;
 }
+.page-editor-prose .page-mention {
+  border-radius: 4px;
+  padding: 0 0.25rem;
+  font-weight: 500;
+  color: var(--txt-accent-primary);
+  background: var(--bg-accent-subtle);
+}
 
 /* Tables — use --tableCellMinWidth for resizable column behaviour. */
 .page-editor-prose table.page-table,

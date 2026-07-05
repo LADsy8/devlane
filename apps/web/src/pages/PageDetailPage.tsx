@@ -27,6 +27,7 @@ import {
   PageOutline,
   usePageEditor,
   type PageLogo,
+  type MentionItem,
 } from '../components/page-editor';
 import { useAuth } from '../contexts/AuthContext';
 import { useSetPageDetailHeader } from '../contexts/PageDetailHeaderContext';
@@ -107,6 +108,7 @@ export function PageDetailPage() {
   const [moveLoading, setMoveLoading] = useState(false);
   const [moveSubmitting, setMoveSubmitting] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [mentionMembers, setMentionMembers] = useState<MentionItem[]>([]);
 
   const titleSaveTimer = useRef<number | null>(null);
   const bodySaveTimer = useRef<number | null>(null);
@@ -173,12 +175,35 @@ export function PageDetailPage() {
     readOnly: editorReadOnly,
     onUpdate: onEditorUpdate,
     onSaveShortcut,
+    mentionItems: mentionMembers,
   });
   // Mirror the latest editor instance into the ref so non-render code (key
   // handlers, save flushes) can reach it without re-deriving callback identity.
   useEffect(() => {
     editorRef.current = editor;
   }, [editor]);
+
+  // Load workspace members for the @-mention menu.
+  useEffect(() => {
+    if (!workspaceSlug) return;
+    let cancelled = false;
+    void workspaceService
+      .listMembers(workspaceSlug)
+      .then((members) => {
+        if (cancelled) return;
+        setMentionMembers(
+          members.map((m) => ({
+            id: m.member_id,
+            label: m.member_display_name || m.member_email || 'Member',
+            avatarUrl: m.member_avatar ?? null,
+          })),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceSlug]);
 
   // ----- Initial load ------------------------------------------------------
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -15,6 +15,9 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
+import { SlashCommand } from './slashCommands';
+import { createMention } from './mentions';
+import type { MentionItem } from './mentionTypes';
 
 export interface UsePageEditorOptions {
   /** Initial HTML to seed the editor with on mount. */
@@ -27,6 +30,8 @@ export interface UsePageEditorOptions {
   onUpdate?: (html: string) => void;
   /** Optional Ctrl/Cmd+S handler — also prevents the browser save dialog. */
   onSaveShortcut?: () => void;
+  /** Workspace members offered by the @-mention menu. */
+  mentionItems?: MentionItem[];
 }
 
 /**
@@ -40,7 +45,13 @@ export interface UsePageEditorOptions {
  * a sticky toolbar can live above the scrollable page body.
  */
 export function usePageEditor(opts: UsePageEditorOptions): Editor | null {
-  const { initialHtml, placeholder, readOnly, onUpdate, onSaveShortcut } = opts;
+  const { initialHtml, placeholder, readOnly, onUpdate, onSaveShortcut, mentionItems } = opts;
+
+  // The mention suggestion reads members through this ref so members that load
+  // after the editor mounts still appear in the menu. The getter is only invoked
+  // by the ProseMirror suggestion plugin on user input, never during render.
+  const mentionItemsRef = useRef<MentionItem[]>([]);
+  const getMentionItems = () => mentionItemsRef.current;
 
   const editor = useEditor({
     extensions: [
@@ -66,6 +77,9 @@ export function usePageEditor(opts: UsePageEditorOptions): Editor | null {
       TableRow,
       TableHeader,
       TableCell,
+      SlashCommand,
+      // eslint-disable-next-line react-hooks/refs -- getter is invoked by the suggestion plugin on input, not during render
+      createMention(getMentionItems),
       Placeholder.configure({
         placeholder: placeholder ?? 'Start writing… or press “/” for commands',
       }),
@@ -91,6 +105,11 @@ export function usePageEditor(opts: UsePageEditorOptions): Editor | null {
       onUpdate?.(ed.getHTML());
     },
   });
+
+  // Keep the mention getter's data current without recreating the editor.
+  useEffect(() => {
+    mentionItemsRef.current = mentionItems ?? [];
+  }, [mentionItems]);
 
   // Sync incoming initialHtml when the page changes (e.g. version restore or
   // route param swap). We avoid forcing a reset on every render to preserve
