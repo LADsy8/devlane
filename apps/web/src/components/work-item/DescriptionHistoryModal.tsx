@@ -98,7 +98,7 @@ export function DescriptionHistoryModal({
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={restoringId === v.id}
+                  disabled={restoringId !== null}
                   onClick={() => restore(v.id)}
                 >
                   {restoringId === v.id ? 'Restoring…' : 'Restore'}

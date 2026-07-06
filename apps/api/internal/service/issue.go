@@ -678,6 +678,19 @@ func (s *IssueService) Update(ctx context.Context, workspaceSlug string, project
 	if sortOrder != nil {
 		issue.SortOrder = *sortOrder
 	}
+	// Snapshot the previous description before it's overwritten, so the history
+	// is complete and recoverable. Done before the save so a snapshot failure
+	// aborts the edit rather than silently losing the prior text.
+	if description != nil && prevDescription != issue.DescriptionHTML {
+		if err := s.is.CreateDescriptionVersion(ctx, &model.IssueDescriptionVersion{
+			IssueID:         issue.ID,
+			DescriptionHTML: prevDescription,
+			CreatedByID:     &userID,
+			OwnedByID:       &userID,
+		}); err != nil {
+			return nil, err
+		}
+	}
 	issue.UpdatedByID = &userID
 	if err := s.is.Update(ctx, issue); err != nil {
 		return nil, err
@@ -739,14 +752,6 @@ func (s *IssueService) Update(ctx context.Context, workspaceSlug string, project
 				s.notify.IssueMentioned(ctx, issue, userID, added, "description")
 			}
 		}
-		// Snapshot the pre-edit description so history can be browsed and restored.
-		// Fire-and-forget: a version write must not fail the update.
-		_ = s.is.CreateDescriptionVersion(ctx, &model.IssueDescriptionVersion{
-			IssueID:         issue.ID,
-			DescriptionHTML: prevDescription,
-			CreatedByID:     &userID,
-			OwnedByID:       &userID,
-		})
 	}
 
 	if assigneeIDs != nil {
@@ -851,13 +856,16 @@ func (s *IssueService) RestoreDescriptionVersion(ctx context.Context, workspaceS
 	if version.DescriptionHTML == issue.DescriptionHTML {
 		return issue, nil // nothing to restore
 	}
-	// Snapshot the current description before overwriting it.
-	_ = s.is.CreateDescriptionVersion(ctx, &model.IssueDescriptionVersion{
+	// Snapshot the current description before overwriting it. Abort on failure so
+	// a restore never destroys the current text without recording it first.
+	if err := s.is.CreateDescriptionVersion(ctx, &model.IssueDescriptionVersion{
 		IssueID:         issue.ID,
 		DescriptionHTML: issue.DescriptionHTML,
 		CreatedByID:     &userID,
 		OwnedByID:       &userID,
-	})
+	}); err != nil {
+		return nil, err
+	}
 	issue.DescriptionHTML = version.DescriptionHTML
 	issue.UpdatedByID = &userID
 	if err := s.is.Update(ctx, issue); err != nil {
