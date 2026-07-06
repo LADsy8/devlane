@@ -3,6 +3,7 @@ import {
   type SavedViewDisplayPropertyId,
   type SavedViewGroupBy,
   type SavedViewOrderBy,
+  type SavedViewOrderDirection,
   ALL_SAVED_VIEW_DISPLAY_PROPERTIES,
   SAVED_VIEW_DISPLAY_PROPERTY_LABELS,
 } from '../../lib/projectSavedViewDisplay';
@@ -81,6 +82,11 @@ const ORDER_OPTIONS: { value: SavedViewOrderBy; label: string }[] = [
   { value: 'start_date', label: 'Start date' },
   { value: 'due_date', label: 'Due date' },
   { value: 'priority', label: 'Priority' },
+];
+
+const DIRECTION_OPTIONS: { value: SavedViewOrderDirection; label: string }[] = [
+  { value: 'asc', label: 'Ascending' },
+  { value: 'desc', label: 'Descending' },
 ];
 
 function CollapsibleSection(props: {
@@ -254,6 +260,27 @@ export function ProjectSavedViewDisplayDropdown() {
                     selected={settings.orderBy === opt.value}
                     onSelect={(v) => setSettings((p) => ({ ...p, orderBy: v }))}
                   />
+                ))}
+              </div>
+              <div
+                className="mx-2 mt-2 flex items-center gap-1"
+                role="group"
+                aria-label="Order direction"
+              >
+                {DIRECTION_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={settings.orderDirection === opt.value}
+                    onClick={() => setSettings((p) => ({ ...p, orderDirection: opt.value }))}
+                    className={
+                      settings.orderDirection === opt.value
+                        ? 'flex-1 rounded-(--radius-md) bg-(--bg-layer-1-hover) px-2 py-1 text-[13px] text-(--txt-primary)'
+                        : 'flex-1 rounded-(--radius-md) px-2 py-1 text-[13px] text-(--txt-secondary) hover:bg-(--bg-layer-1-hover)'
+                    }
+                  >
+                    {opt.label}
+                  </button>
                 ))}
               </div>
               <div className="mx-2 my-2 border-t border-(--border-subtle)" />
