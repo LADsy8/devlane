@@ -160,23 +160,31 @@ func (s *IssueService) autoSubscribe(ctx context.Context, issue *model.Issue, us
 // recordActivity inserts one issue_activities row. Errors are logged-and-ignored
 // — we never fail an issue update because the activity write fails.
 func (s *IssueService) recordActivity(ctx context.Context, issue *model.Issue, userID uuid.UUID, field string, oldVal, newVal string) {
-	if s.activity == nil {
+	recordIssueActivity(ctx, s.activity, issue, userID, field, oldVal, newVal)
+}
+
+// recordIssueActivity writes one issue_activities row. It is a package-level
+// helper so services that own their own data (attachments, comments) can log
+// against an issue without depending on IssueService. Errors are
+// logged-and-ignored, and a nil store or issue is a no-op, so activity
+// bookkeeping never fails the user's primary action.
+func recordIssueActivity(ctx context.Context, activity *store.IssueActivityStore, issue *model.Issue, userID uuid.UUID, field, oldVal, newVal string) {
+	if activity == nil || issue == nil {
 		return
 	}
-	verb := "updated"
 	f := field
 	row := &model.IssueActivity{
 		IssueID:     &issue.ID,
 		ProjectID:   issue.ProjectID,
 		WorkspaceID: issue.WorkspaceID,
-		Verb:        verb,
+		Verb:        "updated",
 		Field:       &f,
 		OldValue:    nullableStr(oldVal),
 		NewValue:    nullableStr(newVal),
 		ActorID:     &userID,
 		CreatedByID: &userID,
 	}
-	_ = s.activity.Create(ctx, row)
+	_ = activity.Create(ctx, row)
 }
 
 func nullableStr(s string) *string {
@@ -1129,7 +1137,8 @@ func (s *IssueService) CreateRelations(ctx context.Context, workspaceSlug string
 // RemoveRelation deletes both the forward and reverse relation rows.
 func (s *IssueService) RemoveRelation(ctx context.Context, workspaceSlug string, projectID, issueID uuid.UUID, userID uuid.UUID, relationType string, relatedIssueID uuid.UUID) error {
 	// Verify the issue belongs to the given project and the user has access.
-	if _, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID); err != nil {
+	issue, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID)
+	if err != nil {
 		return err
 	}
 	if err := s.is.DeleteRelation(ctx, issueID, relatedIssueID, relationType); err != nil {
@@ -1139,6 +1148,7 @@ func (s *IssueService) RemoveRelation(ctx context.Context, workspaceSlug string,
 	// Best-effort for the reverse: the related issue may be in a different project,
 	// and a missing reverse row (already cleaned up) is not an error.
 	_ = s.is.DeleteRelation(ctx, relatedIssueID, issueID, reverseType)
+	s.recordActivity(ctx, issue, userID, "relation_removed", relationType+":"+relatedIssueID.String(), "")
 	return nil
 }
 
@@ -1169,7 +1179,17 @@ func (s *IssueService) CreateLink(ctx context.Context, workspaceSlug string, pro
 	if err := s.is.CreateLink(ctx, l); err != nil {
 		return nil, err
 	}
+	s.recordActivity(ctx, issue, userID, "link_added", "", linkLabel(l))
 	return l, nil
+}
+
+// linkLabel is the human-readable identity of a link for the activity feed:
+// its title when set, otherwise its URL.
+func linkLabel(l *model.IssueLink) string {
+	if l.Title != "" {
+		return l.Title
+	}
+	return l.URL
 }
 
 // UpdateLink edits a link's title or URL.
@@ -1196,6 +1216,9 @@ func (s *IssueService) UpdateLink(ctx context.Context, workspaceSlug string, pro
 	if err := s.is.UpdateLink(ctx, l); err != nil {
 		return nil, err
 	}
+	if issue, err := s.is.GetByID(ctx, issueID); err == nil {
+		s.recordActivity(ctx, issue, userID, "link_updated", "", linkLabel(l))
+	}
 	return l, nil
 }
 
@@ -1214,7 +1237,13 @@ func (s *IssueService) DeleteLink(ctx context.Context, workspaceSlug string, pro
 	if l.IssueID != issueID {
 		return ErrIssueNotFound
 	}
-	return s.is.DeleteLink(ctx, linkID)
+	if err := s.is.DeleteLink(ctx, linkID); err != nil {
+		return err
+	}
+	if issue, err := s.is.GetByID(ctx, issueID); err == nil {
+		s.recordActivity(ctx, issue, userID, "link_removed", linkLabel(l), "")
+	}
+	return nil
 }
 
 // --- Epics ---

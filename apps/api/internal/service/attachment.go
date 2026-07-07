@@ -43,14 +43,29 @@ type UploadData struct {
 
 // AttachmentService handles file attachment business logic.
 type AttachmentService struct {
-	is    *store.IssueStore
-	ps    *store.ProjectStore
-	ws    *store.WorkspaceStore
-	minio *minio.Client
+	is       *store.IssueStore
+	ps       *store.ProjectStore
+	ws       *store.WorkspaceStore
+	minio    *minio.Client
+	activity *store.IssueActivityStore // optional — records attachment add/delete on the issue
 }
 
 func NewAttachmentService(is *store.IssueStore, ps *store.ProjectStore, ws *store.WorkspaceStore, m *minio.Client) *AttachmentService {
 	return &AttachmentService{is: is, ps: ps, ws: ws, minio: m}
+}
+
+// SetActivityStore wires the issue-activity store so attachment add/delete show
+// up in the work-item history. Optional.
+func (s *AttachmentService) SetActivityStore(a *store.IssueActivityStore) { s.activity = a }
+
+// assetName is the human-readable file name stored on a file asset, or "" when
+// absent.
+func assetName(a *model.FileAsset) string {
+	if a == nil || a.Attributes == nil {
+		return ""
+	}
+	name, _ := a.Attributes["name"].(string)
+	return name
 }
 
 func (s *AttachmentService) ensureProjectAccess(ctx context.Context, workspaceSlug string, projectID, userID uuid.UUID) error {
@@ -189,7 +204,13 @@ func (s *AttachmentService) ConfirmUpload(ctx context.Context, workspaceSlug str
 	if asset.IssueID == nil || *asset.IssueID != issueID {
 		return ErrAttachmentNotFound
 	}
-	return s.is.MarkFileAssetUploaded(ctx, assetID, asset.Asset)
+	if err := s.is.MarkFileAssetUploaded(ctx, assetID, asset.Asset); err != nil {
+		return err
+	}
+	if issue, err := s.is.GetByID(ctx, issueID); err == nil {
+		recordIssueActivity(ctx, s.activity, issue, userID, "attachment_added", "", assetName(asset))
+	}
+	return nil
 }
 
 // ListAttachments returns uploaded attachments for an issue.
@@ -252,6 +273,9 @@ func (s *AttachmentService) DeleteAttachment(ctx context.Context, workspaceSlug 
 	}
 	if s.minio != nil && asset.IsUploaded && asset.Asset != "" {
 		_ = s.minio.DeleteObject(ctx, asset.Asset)
+	}
+	if issue, err := s.is.GetByID(ctx, issueID); err == nil {
+		recordIssueActivity(ctx, s.activity, issue, userID, "attachment_removed", assetName(asset), "")
 	}
 	return nil
 }

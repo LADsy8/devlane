@@ -9,6 +9,8 @@ import {
   UserPlus,
   UserMinus,
   Link as LinkIcon,
+  Paperclip,
+  MessageSquare,
 } from 'lucide-react';
 import { Avatar } from '../ui';
 import { getImageUrl } from '../../lib/utils';
@@ -179,6 +181,68 @@ function renderActivity(
           </>
         ),
       };
+    case 'link_added':
+      return {
+        icon: <LinkIcon className="h-3.5 w-3.5" />,
+        sentence: (
+          <>
+            added a link{' '}
+            {a.new_value ? <strong className="text-(--txt-primary)">{a.new_value}</strong> : null}
+          </>
+        ),
+      };
+    case 'link_updated':
+      return {
+        icon: <LinkIcon className="h-3.5 w-3.5" />,
+        sentence: (
+          <>
+            updated a link{' '}
+            {a.new_value ? <strong className="text-(--txt-primary)">{a.new_value}</strong> : null}
+          </>
+        ),
+      };
+    case 'link_removed':
+      return {
+        icon: <LinkIcon className="h-3.5 w-3.5" />,
+        sentence: (
+          <>
+            removed a link{' '}
+            {a.old_value ? <strong className="text-(--txt-primary)">{a.old_value}</strong> : null}
+          </>
+        ),
+      };
+    case 'relation_removed':
+      return { icon: <LinkIcon className="h-3.5 w-3.5" />, sentence: <>removed a relation</> };
+    case 'attachment_added':
+      return {
+        icon: <Paperclip className="h-3.5 w-3.5" />,
+        sentence: (
+          <>
+            attached{' '}
+            {a.new_value ? (
+              <strong className="text-(--txt-primary)">{a.new_value}</strong>
+            ) : (
+              'a file'
+            )}
+          </>
+        ),
+      };
+    case 'attachment_removed':
+      return {
+        icon: <Paperclip className="h-3.5 w-3.5" />,
+        sentence: (
+          <>
+            removed attachment{' '}
+            {a.old_value ? <strong className="text-(--txt-primary)">{a.old_value}</strong> : null}
+          </>
+        ),
+      };
+    case 'comment_added':
+      return { icon: <MessageSquare className="h-3.5 w-3.5" />, sentence: <>added a comment</> };
+    case 'comment_updated':
+      return { icon: <MessageSquare className="h-3.5 w-3.5" />, sentence: <>edited a comment</> };
+    case 'comment_removed':
+      return { icon: <MessageSquare className="h-3.5 w-3.5" />, sentence: <>deleted a comment</> };
     default:
       return { icon: <Pencil className="h-3.5 w-3.5" />, sentence: null };
   }
