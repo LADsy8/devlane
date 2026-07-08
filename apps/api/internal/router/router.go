@@ -249,7 +249,7 @@ func New(cfg Config) *gin.Engine {
 	workspaceLinkHandler := &handler.WorkspaceLinkHandler{Link: workspaceLinkSvc}
 	stickyHandler := &handler.StickyHandler{Sticky: stickySvc}
 	recentVisitHandler := &handler.RecentVisitHandler{Recent: recentVisitSvc}
-	userHandler := &handler.UserHandler{Comments: commentStore, Issues: issueStore}
+	userHandler := &handler.UserHandler{Comments: commentStore, Issues: issueStore, Activities: issueActivityStore}
 
 	// Protected API: require auth
 	api := r.Group("/api")
