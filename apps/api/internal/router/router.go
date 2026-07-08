@@ -153,10 +153,17 @@ func New(cfg Config) *gin.Engine {
 	estimateSvc := service.NewEstimateService(estimateStore, projectStore, workspaceStore)
 	pageSvc := service.NewPageService(pageStore, projectStore, workspaceStore)
 	pageSvc.SetFavoriteStore(userFavoriteStore)
-	notificationSvc := service.NewNotificationService(notificationStore, workspaceStore, issueStore, projectStore, userStore, stateStore)
+	notificationSvc := service.NewNotificationService(notificationStore, workspaceStore, issueStore, projectStore, userStore, stateStore)	
 	notificationSvc.SetLogger(cfg.Log)
 	notificationSvc.SetSubscriberStore(issueSubscriberStore)
 	notificationSvc.SetPreferenceStore(userNotifPrefStore)
+	// Wire email notification infrastructure if queue is available
+	if cfg.Queue != nil {
+		emailLogStore := store.NewEmailNotificationLogStore(cfg.DB)
+		notificationSvc.SetEmailLogStore(emailLogStore)
+		notificationSvc.SetQueue(cfg.Queue)
+		notificationSvc.SetAppBaseURL(cfg.AppBaseURL)
+	}
 	issueSvc.SetNotificationService(notificationSvc)
 	issueSvc.SetSubscriberStore(issueSubscriberStore)
 	issueReactionStore := store.NewIssueReactionStore(cfg.DB)
