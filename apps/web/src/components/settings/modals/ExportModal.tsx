@@ -1,7 +1,17 @@
 import { Button, Modal } from '../../ui';
 import { IconChevronDown } from '../icons';
 import { issueService } from '../../../services/issueService';
+import { exportService } from '../../../services/exportService';
 import type { ProjectApiResponse, WorkspaceApiResponse } from '../../../api/types';
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
 interface ExportModalProps {
   open: boolean;
@@ -53,6 +63,16 @@ export function ExportModal({
               try {
                 const projectIds =
                   exportProjectValue === 'all' ? projects.map((p) => p.id) : [exportProjectValue];
+                const base = `export-${workspace?.slug ?? workspaceSlug}-${new Date().toISOString().slice(0, 10)}`;
+
+                // Excel is generated server-side (real .xlsx); CSV/JSON stay client-side.
+                if (exportFormat === 'xlsx') {
+                  const blob = await exportService.createXlsx(workspaceSlug, projectIds);
+                  downloadBlob(blob, `${base}.xlsx`);
+                  setExportProjectOpen(false);
+                  return;
+                }
+
                 const allIssues: Array<
                   Record<string, unknown> & {
                     project_id?: string;
@@ -77,11 +97,9 @@ export function ExportModal({
                     offset += issues.length;
                   }
                 }
-                const fmt = exportFormat === 'xlsx' ? 'csv' : exportFormat;
                 let blob: Blob;
                 let filename: string;
-                const base = `export-${workspace?.slug ?? workspaceSlug}-${new Date().toISOString().slice(0, 10)}`;
-                if (fmt === 'json') {
+                if (exportFormat === 'json') {
                   const str = JSON.stringify(allIssues, null, 2);
                   blob = new Blob([str], { type: 'application/json' });
                   filename = `${base}.json`;
@@ -118,12 +136,7 @@ export function ExportModal({
                   blob = new Blob([csv], { type: 'text/csv' });
                   filename = `${base}.csv`;
                 }
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(url), 0);
+                downloadBlob(blob, filename);
                 setExportProjectOpen(false);
               } catch {
                 // could set export error state
@@ -158,7 +171,7 @@ export function ExportModal({
         </div>
         {exportFormat === 'xlsx' && (
           <p className="mt-2 text-sm text-(--txt-tertiary)">
-            Excel export will download as CSV for now.
+            Exports as a real Excel workbook (.xlsx) generated on the server.
           </p>
         )}
       </div>

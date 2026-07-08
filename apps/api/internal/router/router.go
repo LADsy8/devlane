@@ -145,6 +145,8 @@ func New(cfg Config) *gin.Engine {
 	attachmentSvc := service.NewAttachmentService(issueStore, projectStore, workspaceStore, cfg.Minio)
 	attachmentSvc.SetActivityStore(issueActivityStore)
 	cycleSvc := service.NewCycleService(cycleStore, projectStore, workspaceStore)
+	exporterStore := store.NewExporterStore(cfg.DB)
+	exportSvc := service.NewExportService(exporterStore, issueStore, stateStore, projectStore, workspaceStore)
 	cycleSvc.SetIssueStore(issueStore)
 	moduleSvc := service.NewModuleService(moduleStore, projectStore, workspaceStore)
 	moduleSvc.SetIssueStore(issueStore)
@@ -241,6 +243,7 @@ func New(cfg Config) *gin.Engine {
 	attachmentHandler := &handler.AttachmentHandler{Attachment: attachmentSvc}
 	epicHandler := &handler.EpicHandler{Issue: issueSvc}
 	cycleHandler := &handler.CycleHandler{Cycle: cycleSvc}
+	exportHandler := &handler.ExportHandler{Export: exportSvc}
 	moduleHandler := &handler.ModuleHandler{Module: moduleSvc}
 	issueViewHandler := &handler.IssueViewHandler{IssueView: issueViewSvc}
 	pageHandler := &handler.PageHandler{Page: pageSvc}
@@ -285,6 +288,8 @@ func New(cfg Config) *gin.Engine {
 		api.GET("/workspaces/:slug/", workspaceHandler.GetBySlug)
 		api.PATCH("/workspaces/:slug/", workspaceHandler.Update)
 		api.DELETE("/workspaces/:slug/", workspaceHandler.Delete)
+		api.POST("/workspaces/:slug/exports/", exportHandler.CreateExport)
+		api.GET("/workspaces/:slug/exports/", exportHandler.ListExports)
 		api.GET("/workspaces/:slug/members/", workspaceHandler.ListMembers)
 		api.POST("/workspaces/:slug/members/leave/", workspaceHandler.Leave)
 		api.GET("/workspaces/:slug/members/:pk/", workspaceHandler.GetMember)
