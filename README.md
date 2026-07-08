@@ -37,20 +37,28 @@ Instance administrators can manage workspaces and instance settings from the ins
 
 ## Screenshots
 
-<p align="center">
-  <img src="./assets/screenshots/board.png" width="720" alt="Board view — work items across states with priority, assignee, and due date at a glance">
-  <br><sub><b>Board</b> — work items across states with priority, assignee, and due date at a glance</sub>
-</p>
-
-<p align="center">
-  <img src="./assets/screenshots/issue-list.png" width="720" alt="Work items list — a filterable, sortable list of everything in a project">
-  <br><sub><b>Work items list</b> — a filterable, sortable list of everything in a project</sub>
-</p>
-
-<p align="center">
-  <img src="./assets/screenshots/issue-detail.png" width="720" alt="Work item detail — description, activity feed, comments, and properties side by side">
-  <br><sub><b>Work item detail</b> — description, activity feed, comments, and properties side by side</sub>
-</p>
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="./assets/screenshots/board.png" width="440" alt="Board view — work items across states with priority, assignee, and due date at a glance">
+      <br><sub><b>Board</b> — work items across states with priority, assignee, and due date</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="./assets/screenshots/issue-list.png" width="440" alt="Work items list — a filterable, sortable list of everything in a project">
+      <br><sub><b>Work items list</b> — filterable, sortable list of everything in a project</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="./assets/screenshots/issue-detail.png" width="440" alt="Work item detail — description, activity feed, comments, and properties side by side">
+      <br><sub><b>Work item detail</b> — description, activity, comments, and properties</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="./assets/screenshots/analytics.png" width="440" alt="Analytics overview — progress and trends across the workspace">
+      <br><sub><b>Analytics</b> — progress and trends across the workspace</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
