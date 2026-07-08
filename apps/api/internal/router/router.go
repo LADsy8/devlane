@@ -162,7 +162,7 @@ func New(cfg Config) *gin.Engine {
 		emailLogStore := store.NewEmailNotificationLogStore(cfg.DB)
 		notificationSvc.SetEmailLogStore(emailLogStore)
 		notificationSvc.SetQueue(cfg.Queue)
-		notificationSvc.SetAppBaseURL(cfg.AppBaseURL)
+		notificationSvc.SetAppBaseURL(appBaseURL)
 	}
 	issueSvc.SetNotificationService(notificationSvc)
 	issueSvc.SetSubscriberStore(issueSubscriberStore)

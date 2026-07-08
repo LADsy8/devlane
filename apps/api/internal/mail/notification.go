@@ -75,7 +75,12 @@ func buildNotificationBody(sender string, data NotificationEmailData) string {
 		return greeting + msg + footer
 
 	case "subscribed":
-		msg := fmt.Sprintf("%s updated %s on %s: %s", data.ActorName, data.FieldName, data.IssueRef, data.IssueTitle)
+		var msg string
+		if data.FieldName != "" {
+			msg = fmt.Sprintf("%s updated %s on %s: %s", data.ActorName, data.FieldName, data.IssueRef, data.IssueTitle)
+		} else {
+			msg = fmt.Sprintf("%s updated %s: %s", data.ActorName, data.IssueRef, data.IssueTitle)
+		}
 		if data.OldValue != "" && data.NewValue != "" {
 			msg += fmt.Sprintf("\nFrom: %s\nTo: %s", data.OldValue, data.NewValue)
 		} else if data.NewValue != "" {

@@ -330,20 +330,17 @@ func (s *NotificationService) emit(ctx context.Context, receivers []uuid.UUID, p
 	// Queue notification emails if email infrastructure is available.
 	// This runs synchronously but logs+swallows errors to avoid breaking in-app notifications.
 	if s.queue != nil && s.emailLog != nil && s.appURL != "" {
-		s.enqueueNotificationEmails(ctx, allowed, params)
+		s.enqueueNotificationEmails(ctx, allowed, params, actorName, issueRef)
 	}
 }
 
 // enqueueNotificationEmails queues an email for each receiver who received an in-app notification.
 // Errors are logged and swallowed — email delivery is best-effort and must not break in-app notifications.
-func (s *NotificationService) enqueueNotificationEmails(ctx context.Context, receivers []uuid.UUID, params emitParams) {
+func (s *NotificationService) enqueueNotificationEmails(ctx context.Context, receivers []uuid.UUID, params emitParams, actorName, issueRef string) {
 	if params.issue == nil || len(receivers) == 0 {
 		return
 	}
 
-	actorName := s.actorDisplayName(ctx, params.actorID)
-	projectIdent := s.projectIdentifier(ctx, params.issue.ProjectID)
-	issueRef := fmt.Sprintf("%s-%d", projectIdent, params.issue.SequenceID)
 	issueURL := fmt.Sprintf("%s/issue/%s", strings.TrimSuffix(s.appURL, "/"), params.issue.ID)
 
 	// Resolve workspace name for email footer
@@ -416,7 +413,7 @@ func (s *NotificationService) enqueueNotificationEmails(ctx context.Context, rec
 			Body:    body,
 			Kind:    fmt.Sprintf("notification_%s", sender),
 		}); err != nil {
-			s.logger().Warn("email queue failed", "err", err, "receiver", receiver.Email, "log_id", emailLog.ID)
+			s.logger().Warn("email queue failed", "err", err, "receiver", receiverID, "log_id", emailLog.ID)
 			continue
 		}
 
