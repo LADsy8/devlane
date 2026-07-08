@@ -157,6 +157,13 @@ func New(cfg Config) *gin.Engine {
 	notificationSvc.SetLogger(cfg.Log)
 	notificationSvc.SetSubscriberStore(issueSubscriberStore)
 	notificationSvc.SetPreferenceStore(userNotifPrefStore)
+	// Wire email notification infrastructure if queue is available
+	if cfg.Queue != nil {
+		emailLogStore := store.NewEmailNotificationLogStore(cfg.DB)
+		notificationSvc.SetEmailLogStore(emailLogStore)
+		notificationSvc.SetQueue(cfg.Queue)
+		notificationSvc.SetAppBaseURL(appBaseURL)
+	}
 	issueSvc.SetNotificationService(notificationSvc)
 	issueSvc.SetSubscriberStore(issueSubscriberStore)
 	issueReactionStore := store.NewIssueReactionStore(cfg.DB)

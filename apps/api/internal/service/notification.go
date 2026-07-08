@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Devlaner/devlane/api/internal/mail"
 	"github.com/Devlaner/devlane/api/internal/model"
+	"github.com/Devlaner/devlane/api/internal/queue"
 	"github.com/Devlaner/devlane/api/internal/store"
 	"github.com/google/uuid"
 )
@@ -21,15 +23,18 @@ import (
 // own DB writes succeed. emit() returns are logged and swallowed: a transient
 // notifications-table failure must not roll back the user's actual change.
 type NotificationService struct {
-	ns    *store.NotificationStore
-	ws    *store.WorkspaceStore
-	is    *store.IssueStore                      // for assignee + creator lookups (receiver computation)
-	ps    *store.ProjectStore                    // for project-membership filter
-	us    *store.UserStore                       // for actor display name
-	ss    *store.StateStore                      // for state name resolution in Message payload
-	subs  *store.IssueSubscriberStore            // optional — subscriber-based receivers
-	prefs *store.UserNotificationPreferenceStore // optional — preference gating
-	log   *slog.Logger
+	ns       *store.NotificationStore
+	ws       *store.WorkspaceStore
+	is       *store.IssueStore                      // for assignee + creator lookups (receiver computation)
+	ps       *store.ProjectStore                    // for project-membership filter
+	us       *store.UserStore                       // for actor display name
+	ss       *store.StateStore                      // for state name resolution in Message payload
+	subs     *store.IssueSubscriberStore            // optional — subscriber-based receivers
+	prefs    *store.UserNotificationPreferenceStore // optional — preference gating
+	log      *slog.Logger
+	emailLog *store.EmailNotificationLogStore // optional — email notification audit logging
+	queue    *queue.Publisher                 // optional — RabbitMQ publisher for email notifications
+	appURL   string                           // optional — base URL for issue links in notification emails
 }
 
 func NewNotificationService(
@@ -40,7 +45,14 @@ func NewNotificationService(
 	us *store.UserStore,
 	ss *store.StateStore,
 ) *NotificationService {
-	return &NotificationService{ns: ns, ws: ws, is: is, ps: ps, us: us, ss: ss}
+	return &NotificationService{
+		ns: ns,
+		ws: ws,
+		is: is,
+		ps: ps,
+		us: us,
+		ss: ss,
+	}
 }
 
 // SetSubscriberStore wires per-issue subscriber lookups so subscribers are
@@ -57,6 +69,21 @@ func (s *NotificationService) SetPreferenceStore(p *store.UserNotificationPrefer
 
 // SetLogger lets the caller wire a request-scoped slog. Optional.
 func (s *NotificationService) SetLogger(l *slog.Logger) { s.log = l }
+
+// SetEmailLogStore wires email notification audit logging. Optional.
+func (s *NotificationService) SetEmailLogStore(e *store.EmailNotificationLogStore) {
+	s.emailLog = e
+}
+
+// SetQueue wires the RabbitMQ publisher for email notifications. Optional.
+func (s *NotificationService) SetQueue(q *queue.Publisher) {
+	s.queue = q
+}
+
+// SetAppBaseURL wires the base URL for issue links in notification emails. Optional.
+func (s *NotificationService) SetAppBaseURL(url string) {
+	s.appURL = url
+}
 
 func (s *NotificationService) logger() *slog.Logger {
 	if s.log != nil {
@@ -298,6 +325,104 @@ func (s *NotificationService) emit(ctx context.Context, receivers []uuid.UUID, p
 	}
 	if err := s.ns.CreateMany(ctx, rows); err != nil {
 		s.logger().Warn("notification fan-out failed", "err", err, "issue_id", params.issue.ID, "receivers", len(rows))
+	}
+
+	// Queue notification emails if email infrastructure is available.
+	// This runs synchronously but logs+swallows errors to avoid breaking in-app notifications.
+	if s.queue != nil && s.emailLog != nil && s.appURL != "" {
+		s.enqueueNotificationEmails(ctx, allowed, params, actorName, issueRef)
+	}
+}
+
+// enqueueNotificationEmails queues an email for each receiver who received an in-app notification.
+// Errors are logged and swallowed — email delivery is best-effort and must not break in-app notifications.
+func (s *NotificationService) enqueueNotificationEmails(ctx context.Context, receivers []uuid.UUID, params emitParams, actorName, issueRef string) {
+	if params.issue == nil || len(receivers) == 0 {
+		return
+	}
+
+	issueURL := fmt.Sprintf("%s/issue/%s", strings.TrimSuffix(s.appURL, "/"), params.issue.ID)
+
+	// Resolve workspace name for email footer
+	workspaceName := "Devlane"
+	if wrk, err := s.ws.GetByID(ctx, params.issue.WorkspaceID); err == nil && wrk != nil {
+		workspaceName = wrk.Name
+	}
+
+	for _, receiverID := range receivers {
+		receiver, err := s.us.GetByID(ctx, receiverID)
+		if err != nil || receiver == nil || receiver.Email == nil || *receiver.Email == "" {
+			continue // Skip users without email
+		}
+
+		// Determine effective sender (mention override)
+		sender := params.sender
+		if params.classifyMention != nil && params.classifyMention(receiverID) {
+			sender = model.NotificationSenderMentioned
+		}
+
+		// Build receiver display name
+		receiverName := receiver.DisplayName
+		if receiverName == "" {
+			receiverName = strings.TrimSpace(receiver.FirstName + " " + receiver.LastName)
+		}
+		if receiverName == "" {
+			receiverName = receiver.Username
+		}
+		if receiverName == "" {
+			receiverName = "there"
+		}
+
+		// Build email content
+		subject, body := mail.BuildNotificationEmail(sender, mail.NotificationEmailData{
+			ReceiverName:   receiverName,
+			ActorName:      actorName,
+			IssueRef:       issueRef,
+			IssueTitle:     params.issue.Name,
+			IssueURL:       issueURL,
+			WorkspaceName:  workspaceName,
+			CommentPreview: params.commentPreview,
+			FieldName:      humanFieldName(params.field),
+			OldValue:       params.before,
+			NewValue:       params.after,
+		})
+
+		// Create email log entry (for audit)
+		issueID := params.issue.ID
+		emailLog := &model.EmailNotificationLog{
+			ReceiverID:       receiverID,
+			TriggeredByID:    &params.actorID,
+			Subject:          subject,
+			EntityIdentifier: &issueID,
+			EntityName:       model.NotificationEntityIssue,
+			Data: model.JSONMap{
+				"sender":     sender,
+				"issue_ref":  issueRef,
+				"issue_name": params.issue.Name,
+			},
+		}
+		if err := s.emailLog.Create(ctx, emailLog); err != nil {
+			s.logger().Warn("email log create failed, skipping email", "err", err, "receiver", receiverID)
+			continue
+		}
+
+		// Queue email via RabbitMQ
+		if err := s.queue.PublishSendEmail(ctx, queue.SendEmailPayload{
+			To:      *receiver.Email,
+			Subject: subject,
+			Body:    body,
+			Kind:    fmt.Sprintf("notification_%s", sender),
+		}); err != nil {
+			s.logger().Warn("email queue failed", "err", err, "receiver", receiverID, "log_id", emailLog.ID)
+			continue
+		}
+
+		// Mark as sent (queued to RabbitMQ)
+		now := time.Now()
+		if err := s.emailLog.MarkSent(ctx, emailLog.ID, now); err != nil {
+			s.logger().Warn("email log mark sent failed", "err", err, "log_id", emailLog.ID)
+			// Non-fatal: email is queued, log update failure doesn't matter
+		}
 	}
 }
 
