@@ -221,6 +221,12 @@ func New(cfg Config) *gin.Engine {
 		Queue:      cfg.Queue,
 		AppBaseURL: appBaseURL,
 	}
+
+	analyticsHandler := &handler.AnalyticsHandler{
+		DB:  cfg.DB,
+		Log: cfg.Log,
+	}
+
 	projectHandler := &handler.ProjectHandler{Project: projectSvc, State: stateSvc}
 	favoriteHandler := &handler.FavoriteHandler{Project: projectSvc, Favorites: userFavoriteStore}
 	stateHandler := &handler.StateHandler{State: stateSvc}
@@ -360,6 +366,12 @@ func New(cfg Config) *gin.Engine {
 		api.POST("/workspaces/:slug/projects/:projectId/issues-bulk/delete/", issueHandler.BulkDelete)
 		api.POST("/workspaces/:slug/projects/:projectId/issues-bulk/reorder/", issueHandler.BulkReorder)
 
+		api.GET("/workspaces/:slug/analytics/", analyticsHandler.GetWorkspaceAnalytics)
+		api.GET("/workspaces/:slug/analytics/export/", analyticsHandler.ExportWorkspaceCSV)
+
+		api.GET("/workspaces/:slug/projects/:projectId/analytics", analyticsHandler.GetProjectAnalytics)
+		api.GET("/workspaces/:slug/projects/:projectId/analytics/export", analyticsHandler.ExportProjectCSV)
+
 		api.GET("/workspaces/:slug/projects/:projectId/cycles/", cycleHandler.List)
 		api.POST("/workspaces/:slug/projects/:projectId/cycles/", cycleHandler.Create)
 		api.GET("/workspaces/:slug/projects/:projectId/cycles/:cycleId/", cycleHandler.Get)
@@ -372,9 +384,7 @@ func New(cfg Config) *gin.Engine {
 		api.GET("/workspaces/:slug/projects/:projectId/cycles/:cycleId/cycle-progress/", cycleHandler.Progress)
 		api.GET("/workspaces/:slug/projects/:projectId/cycles/:cycleId/analytics", cycleHandler.Analytics)
 
-		api.GET("/workspaces/:slug/projects/:projectId/modules/", moduleHandler.List)
 		api.POST("/workspaces/:slug/projects/:projectId/modules/", moduleHandler.Create)
-		api.GET("/workspaces/:slug/projects/:projectId/modules/:moduleId/", moduleHandler.Get)
 		api.PATCH("/workspaces/:slug/projects/:projectId/modules/:moduleId/", moduleHandler.Update)
 		api.DELETE("/workspaces/:slug/projects/:projectId/modules/:moduleId/", moduleHandler.Delete)
 		api.GET("/workspaces/:slug/projects/:projectId/modules/:moduleId/issues/", moduleHandler.ListIssues)
