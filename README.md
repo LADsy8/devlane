@@ -35,6 +35,19 @@ Instance administrators can manage workspaces and instance settings from the ins
 
 ---
 
+## Screenshots
+
+**Board view** — track work items across states with priority, assignee, and due date at a glance.
+![Board view](./assets/screenshots/board.png)
+
+**Work items list** — a filterable, sortable list of everything in a project.
+![Work items list](./assets/screenshots/issue-list.png)
+
+**Work item detail** — description, activity feed, comments, and properties side by side.
+![Work item detail](./assets/screenshots/issue-detail.png)
+
+---
+
 ## Local development
 
 1. **API** — From the `apps/api` directory, copy `.env.example` to `.env`, set your PostgreSQL and Redis (and optional RabbitMQ/MinIO) settings, run migrations, then start the server (see `apps/api/README.md`).
