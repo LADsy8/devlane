@@ -121,4 +121,4 @@ AI-assisted contributions are accepted, but must be disclosed — note the tool 
 
 ## License
 
-This project is licensed under the **Devlane Software License**. It grants you broad use and modification rights (MIT-style) but does not allow selling the software or offering it as a hosted/subscription service to third parties. See [LICENSE](LICENSE) for the full text. This license is not OSI-approved open source.
+This project is licensed under the [MIT License](LICENSE), an OSI-approved open source license.
