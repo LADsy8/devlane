@@ -234,6 +234,7 @@ func New(cfg Config) *gin.Engine {
 		AppBaseURL: appBaseURL,
 	}
 	projectHandler := &handler.ProjectHandler{Project: projectSvc, State: stateSvc}
+	notifPrefHandler := &handler.NotificationPreferenceHandler{Prefs: userNotifPrefStore, Ws: workspaceStore, Projects: projectSvc}
 	favoriteHandler := &handler.FavoriteHandler{Project: projectSvc, Favorites: userFavoriteStore}
 	stateHandler := &handler.StateHandler{State: stateSvc}
 	labelHandler := &handler.LabelHandler{Label: labelSvc}
@@ -265,6 +266,10 @@ func New(cfg Config) *gin.Engine {
 		api.POST("/users/me/set-password/", authHandler.SetPassword)
 		api.GET("/users/me/notification-preferences/", authHandler.GetNotificationPreferences)
 		api.PUT("/users/me/notification-preferences/", authHandler.UpdateNotificationPreferences)
+		api.GET("/workspaces/:slug/notification-preferences/", notifPrefHandler.GetWorkspace)
+		api.PUT("/workspaces/:slug/notification-preferences/", notifPrefHandler.UpdateWorkspace)
+		api.GET("/workspaces/:slug/projects/:projectId/notification-preferences/", notifPrefHandler.GetProject)
+		api.PUT("/workspaces/:slug/projects/:projectId/notification-preferences/", notifPrefHandler.UpdateProject)
 		api.GET("/users/me/activity/", userHandler.GetActivity)
 		api.GET("/users/me/tokens/", authHandler.ListTokens)
 		api.POST("/users/me/tokens/", authHandler.CreateToken)

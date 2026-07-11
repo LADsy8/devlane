@@ -20,6 +20,7 @@ import {
 export type WorkspaceSettingsSection =
   | 'general'
   | 'members'
+  | 'notifications'
   | 'api-tokens'
   | 'integrations'
   | 'exports'
@@ -28,6 +29,7 @@ export type ProjectSettingsSection =
   | 'general'
   | 'members'
   | 'features'
+  | 'notifications'
   | 'states'
   | 'labels'
   | 'estimates'
@@ -50,6 +52,7 @@ export const PROJECT_SECTIONS: SettingsSectionConfig<ProjectSettingsSection>[] =
   { id: 'general', label: 'General', icon: <IconGrid /> },
   { id: 'members', label: 'Members', icon: <IconUsers /> },
   { id: 'features', label: 'Features', icon: <IconZap /> },
+  { id: 'notifications', label: 'Notifications', icon: <IconBell /> },
   { id: 'states', label: 'States', icon: <IconActivity /> },
   { id: 'labels', label: 'Labels', icon: <IconTag /> },
   { id: 'estimates', label: 'Estimates', icon: <IconClock /> },
@@ -68,11 +71,12 @@ export const ACCOUNT_SECTIONS_DEVELOPER: SettingsSectionConfig<AccountSettingsSe
   { id: 'tokens', label: 'Personal Access Tokens', icon: <IconKey /> },
 ];
 
-// The nav groups these as Administration = slice(0, 4), Developer = slice(4).
-// Keep the first four as the admin sections; append Developer-facing ones.
+// The nav groups these as Administration = slice(0, 5), Developer = slice(5).
+// Keep the first five as the admin sections; append Developer-facing ones.
 export const WORKSPACE_SECTIONS: SettingsSectionConfig<WorkspaceSettingsSection>[] = [
   { id: 'general', label: 'General', icon: <IconGrid /> },
   { id: 'members', label: 'Members', icon: <IconUsers /> },
+  { id: 'notifications', label: 'Notifications', icon: <IconBell /> },
   { id: 'integrations', label: 'Integrations', icon: <IconPlug /> },
   { id: 'exports', label: 'Exports', icon: <IconUpload /> },
   { id: 'webhooks', label: 'Webhooks', icon: <IconWebhook /> },

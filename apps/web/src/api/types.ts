@@ -320,6 +320,11 @@ export interface NotificationPreferencesResponse {
   comment: boolean;
   mention: boolean;
   issue_completed: boolean;
+  email_property_change: boolean;
+  email_state_change: boolean;
+  email_comment: boolean;
+  email_mention: boolean;
+  email_issue_completed: boolean;
 }
 
 /** GET /api/users/me/activity/ */

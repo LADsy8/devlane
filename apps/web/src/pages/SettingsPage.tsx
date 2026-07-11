@@ -4,6 +4,8 @@ import { Card, CardContent, Button, Avatar, Modal } from '../components/ui';
 import { CoverImageModal } from '../components/CoverImageModal';
 import { IntegrationsSection } from '../components/integrations/IntegrationsSection';
 import { ProjectEstimatesSettings } from '../components/settings/ProjectEstimatesSettings';
+import { NotificationPreferencesPanel } from '../components/settings/NotificationPreferencesPanel';
+import { notificationPreferenceService } from '../services/notificationPreferenceService';
 import { UploadImageModal } from '../components/UploadImageModal';
 import { ProjectIconModal, ProjectIconDisplay } from '../components/ProjectIconModal';
 import { getImageUrl } from '../lib/utils';
@@ -28,6 +30,7 @@ import type {
   WorkspaceMemberApiResponse,
   UserActivityItem,
   ApiTokenResponse,
+  NotificationPreferencesResponse,
 } from '../api/types';
 import {
   IconGrid,
@@ -145,6 +148,7 @@ export function SettingsPage() {
     'general',
     'members',
     'features',
+    'notifications',
     'states',
     'labels',
     'estimates',
@@ -161,6 +165,37 @@ export function SettingsPage() {
   const selectedProject = selectedProjectId
     ? (projects.find((p) => p.id === selectedProjectId) ?? null)
     : null;
+
+  // Notification preference load/save, one pair per scope. Kept stable so the
+  // panel's effect only re-runs when the target scope changes.
+  const loadAccountNotifPrefs = useCallback(() => userService.getNotificationPreferences(), []);
+  const saveAccountNotifPrefs = useCallback(
+    (partial: Partial<NotificationPreferencesResponse>) =>
+      userService.updateNotificationPreferences(partial),
+    [],
+  );
+  const loadWorkspaceNotifPrefs = useCallback(
+    () => notificationPreferenceService.getWorkspace(workspaceSlug ?? ''),
+    [workspaceSlug],
+  );
+  const saveWorkspaceNotifPrefs = useCallback(
+    (partial: Partial<NotificationPreferencesResponse>) =>
+      notificationPreferenceService.updateWorkspace(workspaceSlug ?? '', partial),
+    [workspaceSlug],
+  );
+  const loadProjectNotifPrefs = useCallback(
+    () => notificationPreferenceService.getProject(workspaceSlug ?? '', selectedProjectId ?? ''),
+    [workspaceSlug, selectedProjectId],
+  );
+  const saveProjectNotifPrefs = useCallback(
+    (partial: Partial<NotificationPreferencesResponse>) =>
+      notificationPreferenceService.updateProject(
+        workspaceSlug ?? '',
+        selectedProjectId ?? '',
+        partial,
+      ),
+    [workspaceSlug, selectedProjectId],
+  );
   const pendingInvites = workspaceInvites.filter((i) => !i.accepted);
   const pendingProjectInvites = projectInvites.filter((i) => !i.accepted);
 
@@ -297,11 +332,6 @@ export function SettingsPage() {
   const [firstDayOfWeek, setFirstDayOfWeek] = useState('monday');
   const [timezone, setTimezone] = useState('UTC');
   const [language, setLanguage] = useState('en');
-  const [notifProperty, setNotifProperty] = useState(true);
-  const [notifState, setNotifState] = useState(true);
-  const [notifCompleted, setNotifCompleted] = useState(true);
-  const [notifComments, setNotifComments] = useState(true);
-  const [notifMentions, setNotifMentions] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -452,7 +482,6 @@ export function SettingsPage() {
   const [projectTimezoneDropdownOpen, setProjectTimezoneDropdownOpen] = useState(false);
   const [projectTimezoneSearch, setProjectTimezoneSearch] = useState('');
   const projectTimezoneDropdownRef = useRef<HTMLDivElement>(null);
-  const [notifPrefsLoaded, setNotifPrefsLoaded] = useState(false);
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
   const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
   const [activityList, setActivityList] = useState<UserActivityItem[]>([]);
@@ -506,29 +535,6 @@ export function SettingsPage() {
       cancelled = true;
     };
   }, [isAccountTab, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- user for prefetch; kept for future use
-
-  useEffect(() => {
-    if (!isAccountTab || accountSection !== 'notifications') return;
-    let cancelled = false;
-    setNotifPrefsLoaded(false);
-    userService
-      .getNotificationPreferences()
-      .then((p) => {
-        if (cancelled) return;
-        setNotifProperty(p.property_change);
-        setNotifState(p.state_change);
-        setNotifComments(p.comment);
-        setNotifMentions(p.mention);
-        setNotifCompleted(p.issue_completed);
-        setNotifPrefsLoaded(true);
-      })
-      .catch(() => {
-        if (!cancelled) setNotifPrefsLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isAccountTab, accountSection]);
 
   useEffect(() => {
     if (!isAccountTab || accountSection !== 'activity') return;
@@ -1195,98 +1201,12 @@ export function SettingsPage() {
           )}
 
           {isAccountTab && accountSection === 'notifications' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-base font-semibold text-(--txt-primary)">
-                  Email notifications
-                </h2>
-                <p className="mt-0.5 text-sm text-(--txt-secondary)">
-                  Stay in the loop on Work items you are subscribed to. Enable this to get notified.
-                </p>
-              </div>
-              <div className="space-y-4">
-                {[
-                  {
-                    id: 'property',
-                    label: 'Property changes',
-                    desc: "Notify me when work items' properties like assignees, priority, estimates or anything else changes.",
-                    value: notifProperty,
-                    set: setNotifProperty,
-                    key: 'property_change' as const,
-                  },
-                  {
-                    id: 'state',
-                    label: 'State change',
-                    desc: 'Notify me when the work items moves to a different state',
-                    value: notifState,
-                    set: setNotifState,
-                    key: 'state_change' as const,
-                  },
-                  {
-                    id: 'completed',
-                    label: 'Work item completed',
-                    desc: 'Notify me only when a work item is completed',
-                    value: notifCompleted,
-                    set: setNotifCompleted,
-                    key: 'issue_completed' as const,
-                  },
-                  {
-                    id: 'comments',
-                    label: 'Comments',
-                    desc: 'Notify me when someone leaves a comment on the work item',
-                    value: notifComments,
-                    set: setNotifComments,
-                    key: 'comment' as const,
-                  },
-                  {
-                    id: 'mentions',
-                    label: 'Mentions',
-                    desc: 'Notify me only when someone mentions me in the comments or description',
-                    value: notifMentions,
-                    set: setNotifMentions,
-                    key: 'mention' as const,
-                  },
-                ].map(({ id, label, desc, value, set, key }) => (
-                  <div
-                    key={id}
-                    className="flex items-start justify-between gap-4 rounded-(--radius-md) border border-(--border-subtle) px-4 py-3"
-                  >
-                    <div>
-                      <p
-                        id={`notif-toggle-label-${id}`}
-                        className="text-sm font-medium text-(--txt-primary)"
-                      >
-                        {label}
-                      </p>
-                      <p className="mt-0.5 text-sm text-(--txt-secondary)">{desc}</p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={value}
-                      aria-labelledby={`notif-toggle-label-${id}`}
-                      disabled={!notifPrefsLoaded}
-                      onClick={async () => {
-                        const next = !value;
-                        set(next);
-                        try {
-                          await userService.updateNotificationPreferences({
-                            [key]: next,
-                          });
-                        } catch {
-                          set(value);
-                        }
-                      }}
-                      className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${value ? 'bg-(--brand-default)' : 'bg-(--neutral-400)'}`}
-                    >
-                      <span
-                        className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-4' : 'translate-x-0'}`}
-                      />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <NotificationPreferencesPanel
+              load={loadAccountNotifPrefs}
+              save={saveAccountNotifPrefs}
+              title="Notifications"
+              description="Your default notifications across every workspace. Workspaces and projects can override these."
+            />
           )}
 
           {isAccountTab && accountSection === 'security' && (
@@ -2345,6 +2265,16 @@ export function SettingsPage() {
             </div>
           )}
 
+          {isProjectsTab && selectedProject && projectSection === 'notifications' && (
+            <NotificationPreferencesPanel
+              key={selectedProject.id}
+              load={loadProjectNotifPrefs}
+              save={saveProjectNotifPrefs}
+              title="Project notifications"
+              description="How you're notified for work in this project. Overrides your workspace and account defaults."
+            />
+          )}
+
           {isProjectsTab && selectedProject && projectSection === 'states' && (
             <div className="space-y-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -3054,6 +2984,16 @@ export function SettingsPage() {
                 )}
               </div>
             </div>
+          )}
+
+          {!isAccountTab && !isProjectsTab && section === 'notifications' && workspaceSlug && (
+            <NotificationPreferencesPanel
+              key={workspaceSlug}
+              load={loadWorkspaceNotifPrefs}
+              save={saveWorkspaceNotifPrefs}
+              title="Workspace notifications"
+              description="How you're notified for work in this workspace. Overrides your account defaults; projects can override this."
+            />
           )}
 
           {!isAccountTab && !isProjectsTab && section === 'api-tokens' && workspaceSlug && (
