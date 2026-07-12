@@ -51,21 +51,34 @@ func (s *IntakeStore) GetOrCreateDefault(ctx context.Context, projectID, workspa
 }
 
 // AcceptTx atomically clears the work item's draft flag and marks the intake
-// item accepted, so the two tables never disagree on a half-applied accept.
+// item accepted, so the two tables never disagree on a half-applied accept. If
+// either row no longer matches (e.g. soft-deleted between the caller's check
+// and here) the whole transaction rolls back.
 func (s *IntakeStore) AcceptTx(ctx context.Context, itemID, issueID, userID uuid.UUID) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.Issue{}).
+		issueRes := tx.Model(&model.Issue{}).
 			Where("id = ?", issueID).
-			UpdateColumn("is_draft", false).Error; err != nil {
-			return err
+			UpdateColumn("is_draft", false)
+		if issueRes.Error != nil {
+			return issueRes.Error
 		}
-		return tx.Model(&model.IntakeIssue{}).
+		if issueRes.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		itemRes := tx.Model(&model.IntakeIssue{}).
 			Where("id = ?", itemID).
 			Updates(map[string]any{
 				"status":        model.IntakeStatusAccepted,
 				"snoozed_till":  nil,
 				"updated_by_id": userID,
-			}).Error
+			})
+		if itemRes.Error != nil {
+			return itemRes.Error
+		}
+		if itemRes.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
 	})
 }
 
