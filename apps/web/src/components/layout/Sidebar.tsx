@@ -26,6 +26,7 @@ import { cyclePathSegment } from '../../lib/cycle';
 import { OPEN_COMMAND_PALETTE } from '../../lib/commandPaletteEvents';
 import { ISSUE_VIEW_FAVORITES_CHANGED_EVENT } from '../../lib/issueViewFavoritesEvents';
 import { CYCLE_FAVORITES_CHANGED_EVENT } from '../../hooks/useCycleFavorites';
+import { IntakeNavBadge } from './IntakeNavBadge';
 
 const SIDEBAR_WIDTH = 256;
 const SIDEBAR_WIDTH_COLLAPSED = 0;
@@ -1330,6 +1331,12 @@ export function Sidebar() {
                                   <Icon />
                                 </span>
                                 {label}
+                                {key === 'intake' && workspaceSlug && (
+                                  <IntakeNavBadge
+                                    workspaceSlug={workspaceSlug}
+                                    projectId={project.id}
+                                  />
+                                )}
                               </NavLink>
                             ))}
                           </div>

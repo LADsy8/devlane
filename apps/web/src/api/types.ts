@@ -329,6 +329,38 @@ export interface NotificationPreferencesResponse {
   email_issue_completed: boolean;
 }
 
+/** Intake triage status codes (match the API's intake_issues.status). */
+export const IntakeStatus = {
+  Pending: -2,
+  Declined: -1,
+  Snoozed: 0,
+  Accepted: 1,
+  Duplicate: 2,
+} as const;
+
+/** An intake ("inbox") item: the triage row plus its work-item summary. */
+export interface IntakeItemApiResponse {
+  id: string;
+  intake_id: string;
+  issue_id: string;
+  status: number;
+  snoozed_till?: string | null;
+  duplicate_to_id?: string | null;
+  source: string;
+  source_email?: string;
+  project_id: string;
+  workspace_id: string;
+  created_at: string;
+  updated_at: string;
+  issue: {
+    id: string;
+    name: string;
+    sequence_id: number;
+    priority: string;
+    created_at: string;
+  };
+}
+
 /** GET /api/users/me/activity/ */
 export interface UserActivityItem {
   id: string;

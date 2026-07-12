@@ -73,6 +73,7 @@ func New(cfg Config) *gin.Engine {
 	issueViewStore := store.NewIssueViewStore(cfg.DB)
 	searchStore := store.NewSearchStore(cfg.DB)
 	estimateStore := store.NewEstimateStore(cfg.DB)
+	intakeStore := store.NewIntakeStore(cfg.DB)
 	pageStore := store.NewPageStore(cfg.DB)
 	notificationStore := store.NewNotificationStore(cfg.DB)
 	issueSubscriberStore := store.NewIssueSubscriberStore(cfg.DB)
@@ -156,6 +157,7 @@ func New(cfg Config) *gin.Engine {
 	issueViewSvc := service.NewIssueViewService(issueViewStore, projectStore, workspaceStore, userFavoriteStore)
 	searchSvc := service.NewSearchService(searchStore, workspaceStore)
 	estimateSvc := service.NewEstimateService(estimateStore, projectStore, workspaceStore)
+	intakeSvc := service.NewIntakeService(intakeStore, issueStore, projectStore, workspaceStore)
 	pageSvc := service.NewPageService(pageStore, projectStore, workspaceStore)
 	pageSvc.SetFavoriteStore(userFavoriteStore)
 	notificationSvc := service.NewNotificationService(notificationStore, workspaceStore, issueStore, projectStore, userStore, stateStore)
@@ -242,6 +244,7 @@ func New(cfg Config) *gin.Engine {
 	labelHandler := &handler.LabelHandler{Label: labelSvc}
 	searchHandler := &handler.SearchHandler{Svc: searchSvc}
 	estimateHandler := &handler.EstimateHandler{Estimate: estimateSvc}
+	intakeHandler := &handler.IntakeHandler{Intake: intakeSvc}
 	issueHandler := &handler.IssueHandler{Issue: issueSvc}
 	issueLinkHandler := &handler.IssueLinkHandler{Issue: issueSvc}
 	attachmentHandler := &handler.AttachmentHandler{Attachment: attachmentSvc}
@@ -355,6 +358,9 @@ func New(cfg Config) *gin.Engine {
 		api.GET("/workspaces/:slug/projects/:projectId/estimates/:pk/", estimateHandler.Get)
 		api.PATCH("/workspaces/:slug/projects/:projectId/estimates/:pk/", estimateHandler.Update)
 		api.DELETE("/workspaces/:slug/projects/:projectId/estimates/:pk/", estimateHandler.Delete)
+		api.GET("/workspaces/:slug/projects/:projectId/intake-issues/", intakeHandler.List)
+		api.GET("/workspaces/:slug/projects/:projectId/intake-issues/count/", intakeHandler.Count)
+		api.PATCH("/workspaces/:slug/projects/:projectId/intake-issues/:pk/", intakeHandler.Transition)
 
 		api.GET("/workspaces/:slug/projects/:projectId/issues/", issueHandler.List)
 		api.POST("/workspaces/:slug/projects/:projectId/issues/", issueHandler.Create)
