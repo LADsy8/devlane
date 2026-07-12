@@ -35,6 +35,33 @@ Instance administrators can manage workspaces and instance settings from the ins
 
 ---
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="./assets/screenshots/board.png" width="440" alt="Board view — work items across states with priority, assignee, and due date at a glance">
+      <br><sub><b>Board</b> — work items across states with priority, assignee, and due date</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="./assets/screenshots/issue-list.png" width="440" alt="Work items list — a filterable, sortable list of everything in a project">
+      <br><sub><b>Work items list</b> — filterable, sortable list of everything in a project</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="./assets/screenshots/issue-detail.png" width="440" alt="Work item detail — description, activity feed, comments, and properties side by side">
+      <br><sub><b>Work item detail</b> — description, activity, comments, and properties</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="./assets/screenshots/analytics.png" width="440" alt="Analytics overview — progress and trends across the workspace">
+      <br><sub><b>Analytics</b> — progress and trends across the workspace</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Local development
 
 1. **API** — From the `apps/api` directory, copy `.env.example` to `.env`, set your PostgreSQL and Redis (and optional RabbitMQ/MinIO) settings, run migrations, then start the server (see `apps/api/README.md`).
@@ -90,14 +117,8 @@ AI-assisted contributions are accepted, but must be disclosed — note the tool 
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=Devlaner%2Fdevlane&type=date&legend=top-left">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Devlaner/devlane&type=date&theme=dark&legend=top-left" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Devlaner/devlane&type=date&legend=top-left" />
-    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Devlaner/devlane&type=date&legend=top-left" />
-  </picture>
-</a>
+[![Star History Chart](https://api.star-history.com/chart?repos=Devlaner/devlane&type=date&legend=top-left&sealed_token=yPOtCk5zPGKPb2fCBiFqXqR-ngUoKILo94BdhU-l7k7oiYxWAKiNSTorxvTolVAsA7ubsRdyFLrJMjaBiM8fs_a7JD_28o6MNdsLqVv0KFeZzeYtMxsrwrcbcqFXgp7c2pi4m4sKpLIXOhPoA5Kcj536PhZhuAMO0J2GbwJFc-FEbTGLLKAofaejCljG)](https://www.star-history.com/?repos=Devlaner%2Fdevlane&type=date&legend=top-left)
 
 ## License
 
-This project is licensed under the **Devlane Software License**. It grants you broad use and modification rights (MIT-style) but does not allow selling the software or offering it as a hosted/subscription service to third parties. See [LICENSE](LICENSE) for the full text. This license is not OSI-approved open source.
+This project is licensed under the [MIT License](LICENSE), an OSI-approved open source license.

@@ -357,6 +357,71 @@ func (h *IssueHandler) ListAssignees(c *gin.Context) {
 	c.JSON(http.StatusOK, ids)
 }
 
+// ListDescriptionVersions returns the issue's description history (newest first).
+// GET /api/workspaces/:slug/projects/:projectId/issues/:pk/description-versions/
+func (h *IssueHandler) ListDescriptionVersions(c *gin.Context) {
+	user := middleware.GetUser(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	slug := c.Param("slug")
+	projectID, err := uuid.Parse(c.Param("projectId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+		return
+	}
+	issueID, ok := issueID(c)
+	if !ok {
+		return
+	}
+	versions, err := h.Issue.ListDescriptionVersions(c.Request.Context(), slug, projectID, issueID, user.ID)
+	if err != nil {
+		if err == service.ErrIssueNotFound || err == service.ErrProjectForbidden {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Issue not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list description versions"})
+		return
+	}
+	c.JSON(http.StatusOK, versions)
+}
+
+// RestoreDescriptionVersion sets the issue description back to a past version.
+// POST /api/workspaces/:slug/projects/:projectId/issues/:pk/description-versions/:versionId/restore/
+func (h *IssueHandler) RestoreDescriptionVersion(c *gin.Context) {
+	user := middleware.GetUser(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	slug := c.Param("slug")
+	projectID, err := uuid.Parse(c.Param("projectId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+		return
+	}
+	issueID, ok := issueID(c)
+	if !ok {
+		return
+	}
+	versionID, err := uuid.Parse(c.Param("versionId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid version ID"})
+		return
+	}
+	issue, err := h.Issue.RestoreDescriptionVersion(c.Request.Context(), slug, projectID, issueID, versionID, user.ID)
+	if err != nil {
+		if err == service.ErrIssueNotFound || err == service.ErrProjectForbidden {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Issue not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore description version"})
+		return
+	}
+	c.JSON(http.StatusOK, issue)
+}
+
 // AddAssignee adds an assignee to the issue.
 // POST /api/workspaces/:slug/projects/:projectId/issues/:pk/assignees/
 func (h *IssueHandler) AddAssignee(c *gin.Context) {

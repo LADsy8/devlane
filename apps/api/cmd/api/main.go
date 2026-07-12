@@ -18,6 +18,7 @@ import (
 	"github.com/Devlaner/devlane/api/internal/rabbitmq"
 	"github.com/Devlaner/devlane/api/internal/redis"
 	"github.com/Devlaner/devlane/api/internal/router"
+	"github.com/Devlaner/devlane/api/internal/service"
 	"github.com/Devlaner/devlane/api/internal/store"
 )
 
@@ -123,6 +124,32 @@ func main() {
 			}
 		}
 	}
+
+	// Periodically run project automations for projects that opt in: auto-archive
+	// settled items (archive_in > 0) and auto-close inactive items (close_in > 0).
+	// Runs in-process; stops on shutdown via consumerCtx.
+	automationSvc := service.NewAutomationService(store.NewProjectStore(db), store.NewIssueStore(db))
+	go func() {
+		ticker := time.NewTicker(6 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-consumerCtx.Done():
+				return
+			case <-ticker.C:
+				if n, err := automationSvc.RunAutoArchive(consumerCtx); err != nil {
+					log.Warn("auto-archive", "error", err)
+				} else if n > 0 {
+					log.Info("auto-archive", "archived", n)
+				}
+				if n, err := automationSvc.RunAutoClose(consumerCtx); err != nil {
+					log.Warn("auto-close", "error", err)
+				} else if n > 0 {
+					log.Info("auto-close", "closed", n)
+				}
+			}
+		}
+	}()
 
 	addr := ":" + cfg.ServerPort
 	srv := &http.Server{

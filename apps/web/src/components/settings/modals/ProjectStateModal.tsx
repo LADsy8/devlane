@@ -61,6 +61,7 @@ export function ProjectStateModal({
                   await stateService.update(workspaceSlug, selectedProjectId, projectStateEdit.id, {
                     name: projectStateName.trim(),
                     color: projectStateColor,
+                    group: projectStateGroup,
                   });
                 } else {
                   await stateService.create(workspaceSlug, selectedProjectId, {
@@ -118,22 +119,20 @@ export function ProjectStateModal({
             />
           </div>
         </div>
-        {!projectStateEdit && (
-          <div>
-            <label className="mb-1 block text-sm font-medium text-(--txt-secondary)">Group</label>
-            <select
-              value={projectStateGroup}
-              onChange={(e) => setProjectStateGroup(e.target.value)}
-              className="w-full rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-3 py-2 text-sm text-(--txt-primary) focus:outline-none focus:border-(--border-strong)"
-            >
-              <option value="backlog">Backlog</option>
-              <option value="unstarted">Unstarted</option>
-              <option value="started">Started</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-        )}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-(--txt-secondary)">Group</label>
+          <select
+            value={projectStateGroup}
+            onChange={(e) => setProjectStateGroup(e.target.value)}
+            className="w-full rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-3 py-2 text-sm text-(--txt-primary) focus:outline-none focus:border-(--border-strong)"
+          >
+            <option value="backlog">Backlog</option>
+            <option value="unstarted">Unstarted</option>
+            <option value="started">Started</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
       </div>
     </Modal>
   );

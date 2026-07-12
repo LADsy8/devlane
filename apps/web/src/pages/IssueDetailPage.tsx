@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Dropdown, DatePickerTrigger, CommentEditor } from '../components/work-item';
 import { sanitizeHtml } from '../lib/sanitize';
 import { DescriptionEditor } from '../components/work-item/DescriptionEditor';
+import { DescriptionHistoryModal } from '../components/work-item/DescriptionHistoryModal';
 import { IssueReactions } from '../components/work-item/IssueReactions';
 import { IssueActivityFeed } from '../components/work-item/IssueActivityFeed';
 import { CommentReactions } from '../components/work-item/CommentReactions';
@@ -87,6 +88,7 @@ export function IssueDetailPage() {
   const [workspace, setWorkspace] = useState<WorkspaceApiResponse | null>(null);
   const [project, setProject] = useState<ProjectApiResponse | null>(null);
   const [issue, setIssue] = useState<IssueApiResponse | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [states, setStates] = useState<StateApiResponse[]>([]);
   const [labels, setLabels] = useState<LabelApiResponse[]>([]);
   const [cycles, setCycles] = useState<CycleApiResponse[]>([]);
@@ -536,8 +538,15 @@ export function IssueDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card>
-            <CardHeader className="text-sm font-medium text-(--txt-secondary)">
-              Description
+            <CardHeader className="flex items-center justify-between text-sm font-medium text-(--txt-secondary)">
+              <span>Description</span>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(true)}
+                className="rounded-(--radius-md) px-2 py-1 text-xs font-normal text-(--txt-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-secondary)"
+              >
+                History
+              </button>
             </CardHeader>
             <CardContent>
               <DescriptionEditor
@@ -1429,6 +1438,17 @@ export function IssueDetailPage() {
           }
         }}
       />
+      {workspaceSlug && projectId && issueId && (
+        <DescriptionHistoryModal
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          workspaceSlug={workspaceSlug}
+          projectId={projectId}
+          issueId={issueId}
+          authorLabel={getMemberLabel}
+          onRestored={(updated) => setIssue(updated)}
+        />
+      )}
     </div>
   );
 }

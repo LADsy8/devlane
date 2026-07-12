@@ -5,6 +5,7 @@ import (
 
 	"github.com/Devlaner/devlane/api/internal/middleware"
 	"github.com/Devlaner/devlane/api/internal/service"
+	"github.com/Devlaner/devlane/api/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -107,8 +108,11 @@ func (h *StateHandler) Update(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Name  string `json:"name"`
-		Color string `json:"color"`
+		Name     string   `json:"name"`
+		Color    string   `json:"color"`
+		Group    *string  `json:"group"`
+		Sequence *float64 `json:"sequence"`
+		Default  *bool    `json:"default"`
 	}
 	_ = c.ShouldBindJSON(&body)
 	var name, color *string
@@ -118,10 +122,14 @@ func (h *StateHandler) Update(c *gin.Context) {
 	if body.Color != "" {
 		color = &body.Color
 	}
-	st, err := h.State.Update(c.Request.Context(), slug, projectID, stateID, user.ID, name, color)
+	st, err := h.State.Update(c.Request.Context(), slug, projectID, stateID, user.ID, name, color, body.Group, body.Sequence, body.Default)
 	if err != nil {
 		if err == service.ErrStateNotFound || err == service.ErrProjectForbidden {
 			c.JSON(http.StatusNotFound, gin.H{"error": "State not found"})
+			return
+		}
+		if err == service.ErrInvalidStateGroup {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state group"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update state"})
@@ -154,6 +162,50 @@ func (h *StateHandler) Delete(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete state"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// Reorder atomically updates the sequence of several of the project's states.
+// POST /api/workspaces/:slug/projects/:projectId/states/reorder/
+func (h *StateHandler) Reorder(c *gin.Context) {
+	user := middleware.GetUser(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	slug := c.Param("slug")
+	projectID, err := uuid.Parse(c.Param("projectId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+		return
+	}
+	var body struct {
+		States []struct {
+			ID       string  `json:"id"`
+			Sequence float64 `json:"sequence"`
+		} `json:"states"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "detail": err.Error()})
+		return
+	}
+	items := make([]store.StateSequence, 0, len(body.States))
+	for _, s := range body.States {
+		id, err := uuid.Parse(s.ID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state ID"})
+			return
+		}
+		items = append(items, store.StateSequence{ID: id, Sequence: s.Sequence})
+	}
+	if err := h.State.Reorder(c.Request.Context(), slug, projectID, user.ID, items); err != nil {
+		if err == service.ErrProjectForbidden || err == service.ErrProjectNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reorder states"})
 		return
 	}
 	c.Status(http.StatusNoContent)

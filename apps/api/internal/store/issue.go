@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"time"
 
 	"github.com/Devlaner/devlane/api/internal/model"
@@ -137,6 +138,55 @@ func (s *IssueStore) SetArchived(ctx context.Context, id uuid.UUID, archived boo
 		Updates(updates).Error
 }
 
+// ArchiveSettledBefore archives (sets archived_at) the project's non-archived,
+// non-draft work items that sit in a completed/cancelled state and were last
+// touched before cutoff. Returns how many were archived. Used by auto-archive.
+func (s *IssueStore) ArchiveSettledBefore(ctx context.Context, projectID uuid.UUID, cutoff time.Time) (int64, error) {
+	res := s.db.WithContext(ctx).
+		Model(&model.Issue{}).
+		Where(`project_id = ? AND deleted_at IS NULL AND archived_at IS NULL AND is_draft IS NOT TRUE
+			AND updated_at < ?
+			AND state_id IN (SELECT id FROM states WHERE project_id = ? AND "group" IN ('completed','cancelled'))`,
+			projectID, cutoff, projectID).
+		Update("archived_at", time.Now())
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
+// CloseInactiveBefore moves the project's non-archived, non-draft work items
+// that are still active (not already in a completed/cancelled state, including
+// items with no state) and were last touched before cutoff into the project's
+// "closed" state: the lowest-sequence state in the cancelled group. Projects
+// with no cancelled state are skipped (returns 0). Bumping updated_at gives a
+// freshly-closed item its own clock before it can become auto-archive-eligible.
+// Returns how many were closed. Used by auto-close.
+func (s *IssueStore) CloseInactiveBefore(ctx context.Context, projectID uuid.UUID, cutoff time.Time) (int64, error) {
+	var closeState model.State
+	err := s.db.WithContext(ctx).
+		Where(`project_id = ? AND deleted_at IS NULL AND "group" = 'cancelled'`, projectID).
+		Order("sequence ASC, created_at ASC").
+		First(&closeState).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	res := s.db.WithContext(ctx).
+		Model(&model.Issue{}).
+		Where(`project_id = ? AND deleted_at IS NULL AND archived_at IS NULL AND is_draft IS NOT TRUE
+			AND updated_at < ?
+			AND (state_id IS NULL OR state_id NOT IN (SELECT id FROM states WHERE project_id = ? AND "group" IN ('completed','cancelled')))`,
+			projectID, cutoff, projectID).
+		Updates(map[string]any{"state_id": closeState.ID, "updated_at": time.Now()})
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
 func (s *IssueStore) ListDraftsByWorkspaceID(ctx context.Context, workspaceID uuid.UUID, limit, offset int) ([]model.Issue, error) {
 	var list []model.Issue
 	q := s.db.WithContext(ctx).Where(
@@ -157,8 +207,55 @@ func (s *IssueStore) Update(ctx context.Context, i *model.Issue) error {
 	return s.db.WithContext(ctx).Save(i).Error
 }
 
+// UpdateFields writes only the given columns for one issue. Unlike Update
+// (a full-row Save), a concurrent PATCH that changed a different field is not
+// clobbered, since each writer only touches the columns it actually changed.
+func (s *IssueStore) UpdateFields(ctx context.Context, issueID uuid.UUID, fields map[string]any) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	res := s.db.WithContext(ctx).
+		Model(&model.Issue{}).
+		Where("id = ? AND deleted_at IS NULL", issueID).
+		Updates(fields)
+	if res.Error != nil {
+		return res.Error
+	}
+	// No matching live row means the issue was deleted since it was loaded; surface
+	// that instead of silently reporting success.
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (s *IssueStore) Delete(ctx context.Context, id uuid.UUID) error {
 	return s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Issue{}).Error
+}
+
+// ----- Issue description versions -----
+
+func (s *IssueStore) CreateDescriptionVersion(ctx context.Context, v *model.IssueDescriptionVersion) error {
+	return s.db.WithContext(ctx).Create(v).Error
+}
+
+// ListDescriptionVersions returns an issue's description history, newest first.
+func (s *IssueStore) ListDescriptionVersions(ctx context.Context, issueID uuid.UUID) ([]model.IssueDescriptionVersion, error) {
+	var list []model.IssueDescriptionVersion
+	err := s.db.WithContext(ctx).
+		Where("issue_id = ?", issueID).
+		Order("created_at DESC").
+		Find(&list).Error
+	return list, err
+}
+
+func (s *IssueStore) GetDescriptionVersion(ctx context.Context, versionID uuid.UUID) (*model.IssueDescriptionVersion, error) {
+	var v model.IssueDescriptionVersion
+	err := s.db.WithContext(ctx).Where("id = ?", versionID).First(&v).Error
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
 }
 
 // BulkUpdateFields updates the given columns for many issues scoped to a

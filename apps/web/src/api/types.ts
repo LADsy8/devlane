@@ -67,6 +67,8 @@ export interface CreateProjectRequest {
   project_lead_id?: string;
   default_assignee_id?: string;
   guest_view_all_features?: boolean;
+  /** 2 = public (any workspace member), 0 = secret (members only). */
+  network?: number;
   module_view?: boolean;
   cycle_view?: boolean;
   issue_views_view?: boolean;
@@ -96,12 +98,18 @@ export interface ProjectApiResponse {
   project_lead_id?: string | null;
   default_assignee_id?: string | null;
   guest_view_all_features?: boolean;
+  /** 2 = public (any workspace member), 0 = secret (members only). */
+  network?: number;
   module_view?: boolean;
   cycle_view?: boolean;
   issue_views_view?: boolean;
   page_view?: boolean;
   intake_view?: boolean;
   is_time_tracking_enabled?: boolean;
+  /** Auto-archive: months of inactivity after which settled items archive (0 = off). */
+  archive_in?: number;
+  /** Auto-close: months of inactivity after which active items are closed (0 = off). */
+  close_in?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -314,6 +322,11 @@ export interface NotificationPreferencesResponse {
   comment: boolean;
   mention: boolean;
   issue_completed: boolean;
+  email_property_change: boolean;
+  email_state_change: boolean;
+  email_comment: boolean;
+  email_mention: boolean;
+  email_issue_completed: boolean;
 }
 
 /** GET /api/users/me/activity/ */
@@ -739,6 +752,15 @@ export interface PageVersionApiResponse {
   description_stripped?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface IssueDescriptionVersionApiResponse {
+  id: string;
+  issue_id: string;
+  description_html?: string;
+  created_by_id?: string | null;
+  owned_by_id?: string | null;
+  created_at: string;
 }
 
 /**

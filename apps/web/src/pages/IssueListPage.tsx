@@ -557,12 +557,13 @@ export function IssueListPage() {
 
   const layout = parseIssueLayout(searchParams.get('layout'));
   const issueHref = (id: string) => `${baseUrl}/issues/${id}`;
+  const orderedVisibleIssues = groupedIssues.order.flatMap(
+    (sectionKey) => groupedIssues.groups.get(sectionKey) ?? [],
+  );
   const layoutProps = {
     workspaceSlug: workspace.slug,
     project,
-    issues: groupedIssues.isFlat
-      ? (groupedIssues.groups.get(groupedIssues.order[0]) ?? [])
-      : filteredIssues,
+    issues: orderedVisibleIssues,
     states,
     labels,
     members,
@@ -570,6 +571,14 @@ export function IssueListPage() {
     baseUrl,
     issueHref,
     now,
+  };
+  const groupedLayoutProps = {
+    groupedIssues,
+    hasCol,
+    showEmptyGroups: listDisplay.showEmptyGroups,
+    subWorkCountByParentId,
+    cycleName,
+    moduleName,
   };
 
   // Manual drag-to-reorder. We splice the move into the FULL loaded issue set
@@ -781,14 +790,22 @@ export function IssueListPage() {
           {layout === 'board' && (
             <IssueLayoutBoard
               {...layoutProps}
+              {...groupedLayoutProps}
+              groupBy={listDisplay.groupBy}
               onCardMove={handleCardMove}
               onUpdateIssue={handleInlineUpdate}
             />
           )}
           {layout === 'spreadsheet' && (
-            <IssueLayoutSpreadsheet {...layoutProps} onUpdateIssue={handleInlineUpdate} />
+            <IssueLayoutSpreadsheet
+              {...layoutProps}
+              {...groupedLayoutProps}
+              onUpdateIssue={handleInlineUpdate}
+            />
           )}
-          {layout === 'calendar' && <IssueLayoutCalendar {...layoutProps} />}
+          {layout === 'calendar' && (
+            <IssueLayoutCalendar {...layoutProps} onUpdateIssue={handleInlineUpdate} />
+          )}
           {layout === 'gantt' && <IssueLayoutGantt {...layoutProps} />}
           {layout === 'list' && (
             <div className="border-t border-(--border-subtle) px-4 py-2.5">

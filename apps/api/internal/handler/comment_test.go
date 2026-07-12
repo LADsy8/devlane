@@ -45,6 +45,22 @@ func TestComment_CRUD(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, rr4.Code, "body=%s", rr4.Body.String())
 }
 
+func TestComment_RecordsActivity(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	w := testutil.SeedWorld(t, ts.DB)
+	issue := testutil.CreateIssue(t, ts.DB, w.Project.ID, w.Workspace.ID, w.User.ID)
+	base := commentBase(w.Workspace.Slug, w.Project.ID.String(), issue.ID.String())
+
+	require.Equal(t, http.StatusCreated, ts.POST(base, map[string]any{"comment": "hi"}, w.Session).Code)
+
+	acts := ts.GET(
+		"/api/workspaces/"+w.Workspace.Slug+"/projects/"+w.Project.ID.String()+"/issues/"+issue.ID.String()+"/activities/",
+		w.Session,
+	)
+	require.Equal(t, http.StatusOK, acts.Code, "body=%s", acts.Body.String())
+	assert.Contains(t, acts.Body.String(), "comment_added")
+}
+
 func TestComment_Reactions(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 	w := testutil.SeedWorld(t, ts.DB)

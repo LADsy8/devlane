@@ -4,6 +4,8 @@ import { Card, CardContent, Button, Avatar, Modal } from '../components/ui';
 import { CoverImageModal } from '../components/CoverImageModal';
 import { IntegrationsSection } from '../components/integrations/IntegrationsSection';
 import { ProjectEstimatesSettings } from '../components/settings/ProjectEstimatesSettings';
+import { NotificationPreferencesPanel } from '../components/settings/NotificationPreferencesPanel';
+import { notificationPreferenceService } from '../services/notificationPreferenceService';
 import { UploadImageModal } from '../components/UploadImageModal';
 import { ProjectIconModal, ProjectIconDisplay } from '../components/ProjectIconModal';
 import { getImageUrl } from '../lib/utils';
@@ -28,6 +30,7 @@ import type {
   WorkspaceMemberApiResponse,
   UserActivityItem,
   ApiTokenResponse,
+  NotificationPreferencesResponse,
 } from '../api/types';
 import {
   IconGrid,
@@ -58,6 +61,7 @@ import {
   type AccountSettingsSection,
 } from '../components/settings/sections-config';
 import { SettingsNav } from '../components/settings/SettingsNav';
+import { WorkspaceApiTokensPanel } from '../components/settings/WorkspaceApiTokensPanel';
 import { ExportModal } from '../components/settings/modals/ExportModal';
 import { InviteModal } from '../components/settings/modals/InviteModal';
 import { ProjectStateModal } from '../components/settings/modals/ProjectStateModal';
@@ -144,6 +148,7 @@ export function SettingsPage() {
     'general',
     'members',
     'features',
+    'notifications',
     'states',
     'labels',
     'estimates',
@@ -160,6 +165,37 @@ export function SettingsPage() {
   const selectedProject = selectedProjectId
     ? (projects.find((p) => p.id === selectedProjectId) ?? null)
     : null;
+
+  // Notification preference load/save, one pair per scope. Kept stable so the
+  // panel's effect only re-runs when the target scope changes.
+  const loadAccountNotifPrefs = useCallback(() => userService.getNotificationPreferences(), []);
+  const saveAccountNotifPrefs = useCallback(
+    (partial: Partial<NotificationPreferencesResponse>) =>
+      userService.updateNotificationPreferences(partial),
+    [],
+  );
+  const loadWorkspaceNotifPrefs = useCallback(
+    () => notificationPreferenceService.getWorkspace(workspaceSlug ?? ''),
+    [workspaceSlug],
+  );
+  const saveWorkspaceNotifPrefs = useCallback(
+    (partial: Partial<NotificationPreferencesResponse>) =>
+      notificationPreferenceService.updateWorkspace(workspaceSlug ?? '', partial),
+    [workspaceSlug],
+  );
+  const loadProjectNotifPrefs = useCallback(
+    () => notificationPreferenceService.getProject(workspaceSlug ?? '', selectedProjectId ?? ''),
+    [workspaceSlug, selectedProjectId],
+  );
+  const saveProjectNotifPrefs = useCallback(
+    (partial: Partial<NotificationPreferencesResponse>) =>
+      notificationPreferenceService.updateProject(
+        workspaceSlug ?? '',
+        selectedProjectId ?? '',
+        partial,
+      ),
+    [workspaceSlug, selectedProjectId],
+  );
   const pendingInvites = workspaceInvites.filter((i) => !i.accepted);
   const pendingProjectInvites = projectInvites.filter((i) => !i.accepted);
 
@@ -221,8 +257,8 @@ export function SettingsPage() {
       setProjectName(selectedProject.name);
       setProjectDescription(selectedProject.description ?? '');
       if (selectedProject.timezone != null) setProjectTimezone(selectedProject.timezone);
-      // Derive Network dropdown value from guest_view_all_features so it reflects persisted visibility
-      setProjectNetwork(selectedProject.guest_view_all_features ? 'public' : 'private');
+      // Reflect the project's persisted network visibility (2 = public, 0 = secret).
+      setProjectNetwork(selectedProject.network === 0 ? 'private' : 'public');
       setProjectLeadId(selectedProject.project_lead_id ?? null);
       setDefaultAssigneeId(selectedProject.default_assignee_id ?? null);
       setGuestAccess(selectedProject.guest_view_all_features ?? false);
@@ -232,6 +268,12 @@ export function SettingsPage() {
       setFeaturePages(selectedProject.page_view ?? true);
       setFeatureIntake(selectedProject.intake_view ?? false);
       setFeatureTimeTracking(selectedProject.is_time_tracking_enabled ?? false);
+      const months = selectedProject.archive_in ?? 0;
+      setAutoArchive(months > 0);
+      if (months > 0) setAutoArchiveMonths(months);
+      const closeMonths = selectedProject.close_in ?? 0;
+      setAutoClose(closeMonths > 0);
+      if (closeMonths > 0) setAutoCloseMonths(closeMonths);
     }
   }, [
     selectedProject,
@@ -242,13 +284,60 @@ export function SettingsPage() {
     selectedProject?.project_lead_id,
     selectedProject?.default_assignee_id,
     selectedProject?.guest_view_all_features,
+    selectedProject?.network,
     selectedProject?.cycle_view,
     selectedProject?.module_view,
     selectedProject?.issue_views_view,
     selectedProject?.page_view,
     selectedProject?.intake_view,
     selectedProject?.is_time_tracking_enabled,
+    selectedProject?.archive_in,
+    selectedProject?.close_in,
   ]);
+
+  // Persist the auto-archive automation: archive_in is the number of months (0
+  // disables it). Optimistically flips the toggle, then saves.
+  const persistAutoArchive = async (enabled: boolean, months: number) => {
+    if (!workspaceSlug || !selectedProjectId) return;
+    setAutoArchive(enabled);
+    setAutoArchiveMonths(months);
+    setAutoArchiveSaving(true);
+    try {
+      const updated = await projectService.update(workspaceSlug, selectedProjectId, {
+        archive_in: enabled ? months : 0,
+      });
+      setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    } catch {
+      // Revert the toggle to the persisted value on failure.
+      const persisted = selectedProject?.archive_in ?? 0;
+      setAutoArchive(persisted > 0);
+      if (persisted > 0) setAutoArchiveMonths(persisted);
+    } finally {
+      setAutoArchiveSaving(false);
+    }
+  };
+
+  // Persist the auto-close automation: close_in is the number of months (0
+  // disables it). Optimistically flips the toggle, then saves.
+  const persistAutoClose = async (enabled: boolean, months: number) => {
+    if (!workspaceSlug || !selectedProjectId) return;
+    setAutoClose(enabled);
+    setAutoCloseMonths(months);
+    setAutoCloseSaving(true);
+    try {
+      const updated = await projectService.update(workspaceSlug, selectedProjectId, {
+        close_in: enabled ? months : 0,
+      });
+      setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    } catch {
+      // Revert the toggle to the persisted value on failure.
+      const persisted = selectedProject?.close_in ?? 0;
+      setAutoClose(persisted > 0);
+      if (persisted > 0) setAutoCloseMonths(persisted);
+    } finally {
+      setAutoCloseSaving(false);
+    }
+  };
 
   const [workspaceName, setWorkspaceName] = useState('');
   const [companySize, setCompanySize] = useState('51-200');
@@ -269,11 +358,6 @@ export function SettingsPage() {
   const [firstDayOfWeek, setFirstDayOfWeek] = useState('monday');
   const [timezone, setTimezone] = useState('UTC');
   const [language, setLanguage] = useState('en');
-  const [notifProperty, setNotifProperty] = useState(true);
-  const [notifState, setNotifState] = useState(true);
-  const [notifCompleted, setNotifCompleted] = useState(true);
-  const [notifComments, setNotifComments] = useState(true);
-  const [notifMentions, setNotifMentions] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -300,14 +384,69 @@ export function SettingsPage() {
   const [projectStateName, setProjectStateName] = useState('');
   const [projectStateColor, setProjectStateColor] = useState('#94a3b8');
   const [projectStateGroup, setProjectStateGroup] = useState('backlog');
+
+  const refreshProjectStates = useCallback(async () => {
+    if (!workspaceSlug || !selectedProjectId) return;
+    const list = await stateService.list(workspaceSlug, selectedProjectId);
+    setProjectStates(list ?? []);
+  }, [workspaceSlug, selectedProjectId]);
+
+  const setStateAsDefault = useCallback(
+    async (st: StateApiResponse) => {
+      if (!workspaceSlug || !selectedProjectId) return;
+      try {
+        await stateService.update(workspaceSlug, selectedProjectId, st.id, { default: true });
+        await refreshProjectStates();
+      } catch {
+        // ignore; the list stays as-is on failure
+      }
+    },
+    [workspaceSlug, selectedProjectId, refreshProjectStates],
+  );
+
+  // Move a state up or down within its own group by reassigning sequences for
+  // that group, so the order is well-defined even when states share the default
+  // sequence value.
+  const moveStateWithinGroup = useCallback(
+    async (st: StateApiResponse, direction: -1 | 1) => {
+      if (!workspaceSlug || !selectedProjectId) return;
+      const groupKey = (st.group ?? 'backlog').toLowerCase();
+      const inGroup = projectStates
+        .filter((s) => (s.group ?? 'backlog').toLowerCase() === groupKey)
+        .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+      const from = inGroup.findIndex((s) => s.id === st.id);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= inGroup.length) return;
+      const reordered = [...inGroup];
+      [reordered[from], reordered[to]] = [reordered[to], reordered[from]];
+      try {
+        // One atomic backend call so a partial failure can't leave the group's
+        // order half-applied.
+        await stateService.reorder(
+          workspaceSlug,
+          selectedProjectId,
+          reordered.map((s, i) => ({ id: s.id, sequence: i })),
+        );
+        await refreshProjectStates();
+      } catch {
+        // ignore; the list stays as-is on failure
+      }
+    },
+    [workspaceSlug, selectedProjectId, projectStates, refreshProjectStates],
+  );
+
   const [featureCycles, setFeatureCycles] = useState(true);
   const [featureModules, setFeatureModules] = useState(true);
   const [featureViews, setFeatureViews] = useState(true);
   const [featurePages, setFeaturePages] = useState(true);
   const [featureIntake, setFeatureIntake] = useState(false);
   const [featureTimeTracking, setFeatureTimeTracking] = useState(false);
-  const [autoArchive, setAutoArchive] = useState(true);
-  const [autoClose, setAutoClose] = useState(true);
+  const [autoArchive, setAutoArchive] = useState(false);
+  const [autoArchiveMonths, setAutoArchiveMonths] = useState(3);
+  const [autoArchiveSaving, setAutoArchiveSaving] = useState(false);
+  const [autoClose, setAutoClose] = useState(false);
+  const [autoCloseMonths, setAutoCloseMonths] = useState(3);
+  const [autoCloseSaving, setAutoCloseSaving] = useState(false);
   const [pendingInvitesExpanded, setPendingInvitesExpanded] = useState(true);
   const [pendingInviteMenuId, setPendingInviteMenuId] = useState<string | null>(null);
   const pendingInviteMenuRef = useRef<HTMLDivElement>(null);
@@ -371,7 +510,6 @@ export function SettingsPage() {
   const [projectTimezoneDropdownOpen, setProjectTimezoneDropdownOpen] = useState(false);
   const [projectTimezoneSearch, setProjectTimezoneSearch] = useState('');
   const projectTimezoneDropdownRef = useRef<HTMLDivElement>(null);
-  const [notifPrefsLoaded, setNotifPrefsLoaded] = useState(false);
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
   const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
   const [activityList, setActivityList] = useState<UserActivityItem[]>([]);
@@ -425,29 +563,6 @@ export function SettingsPage() {
       cancelled = true;
     };
   }, [isAccountTab, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- user for prefetch; kept for future use
-
-  useEffect(() => {
-    if (!isAccountTab || accountSection !== 'notifications') return;
-    let cancelled = false;
-    setNotifPrefsLoaded(false);
-    userService
-      .getNotificationPreferences()
-      .then((p) => {
-        if (cancelled) return;
-        setNotifProperty(p.property_change);
-        setNotifState(p.state_change);
-        setNotifComments(p.comment);
-        setNotifMentions(p.mention);
-        setNotifCompleted(p.issue_completed);
-        setNotifPrefsLoaded(true);
-      })
-      .catch(() => {
-        if (!cancelled) setNotifPrefsLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isAccountTab, accountSection]);
 
   useEffect(() => {
     if (!isAccountTab || accountSection !== 'activity') return;
@@ -1114,98 +1229,12 @@ export function SettingsPage() {
           )}
 
           {isAccountTab && accountSection === 'notifications' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-base font-semibold text-(--txt-primary)">
-                  Email notifications
-                </h2>
-                <p className="mt-0.5 text-sm text-(--txt-secondary)">
-                  Stay in the loop on Work items you are subscribed to. Enable this to get notified.
-                </p>
-              </div>
-              <div className="space-y-4">
-                {[
-                  {
-                    id: 'property',
-                    label: 'Property changes',
-                    desc: "Notify me when work items' properties like assignees, priority, estimates or anything else changes.",
-                    value: notifProperty,
-                    set: setNotifProperty,
-                    key: 'property_change' as const,
-                  },
-                  {
-                    id: 'state',
-                    label: 'State change',
-                    desc: 'Notify me when the work items moves to a different state',
-                    value: notifState,
-                    set: setNotifState,
-                    key: 'state_change' as const,
-                  },
-                  {
-                    id: 'completed',
-                    label: 'Work item completed',
-                    desc: 'Notify me only when a work item is completed',
-                    value: notifCompleted,
-                    set: setNotifCompleted,
-                    key: 'issue_completed' as const,
-                  },
-                  {
-                    id: 'comments',
-                    label: 'Comments',
-                    desc: 'Notify me when someone leaves a comment on the work item',
-                    value: notifComments,
-                    set: setNotifComments,
-                    key: 'comment' as const,
-                  },
-                  {
-                    id: 'mentions',
-                    label: 'Mentions',
-                    desc: 'Notify me only when someone mentions me in the comments or description',
-                    value: notifMentions,
-                    set: setNotifMentions,
-                    key: 'mention' as const,
-                  },
-                ].map(({ id, label, desc, value, set, key }) => (
-                  <div
-                    key={id}
-                    className="flex items-start justify-between gap-4 rounded-(--radius-md) border border-(--border-subtle) px-4 py-3"
-                  >
-                    <div>
-                      <p
-                        id={`notif-toggle-label-${id}`}
-                        className="text-sm font-medium text-(--txt-primary)"
-                      >
-                        {label}
-                      </p>
-                      <p className="mt-0.5 text-sm text-(--txt-secondary)">{desc}</p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={value}
-                      aria-labelledby={`notif-toggle-label-${id}`}
-                      disabled={!notifPrefsLoaded}
-                      onClick={async () => {
-                        const next = !value;
-                        set(next);
-                        try {
-                          await userService.updateNotificationPreferences({
-                            [key]: next,
-                          });
-                        } catch {
-                          set(value);
-                        }
-                      }}
-                      className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${value ? 'bg-(--brand-default)' : 'bg-(--neutral-400)'}`}
-                    >
-                      <span
-                        className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-4' : 'translate-x-0'}`}
-                      />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <NotificationPreferencesPanel
+              load={loadAccountNotifPrefs}
+              save={saveAccountNotifPrefs}
+              title="Notifications"
+              description="Your default notifications across every workspace. Workspaces and projects can override these."
+            />
           )}
 
           {isAccountTab && accountSection === 'security' && (
@@ -1662,22 +1691,22 @@ export function SettingsPage() {
                 <ProjectNetworkSelect
                   value={projectNetwork}
                   onChange={async (v) => {
-                    // Map network dropdown to the same guest_view_all_features flag used elsewhere
-                    const nextGuestAccess = v === 'public';
-                    setProjectNetwork(v);
-                    setGuestAccess(nextGuestAccess);
                     if (!workspaceSlug || !selectedProjectId) return;
+                    const prev = projectNetwork;
+                    setProjectNetwork(v);
                     try {
                       const updated = await projectService.update(
                         workspaceSlug,
                         selectedProjectId,
-                        { guest_view_all_features: nextGuestAccess },
+                        {
+                          network: v === 'public' ? 2 : 0,
+                        },
                       );
-                      setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+                      setProjects((prevProjects) =>
+                        prevProjects.map((p) => (p.id === updated.id ? updated : p)),
+                      );
                     } catch {
-                      // revert local state on failure
-                      setProjectNetwork(nextGuestAccess ? 'private' : 'public');
-                      setGuestAccess(!nextGuestAccess);
+                      setProjectNetwork(prev); // revert on failure
                     }
                   }}
                 />
@@ -2264,6 +2293,16 @@ export function SettingsPage() {
             </div>
           )}
 
+          {isProjectsTab && selectedProject && projectSection === 'notifications' && (
+            <NotificationPreferencesPanel
+              key={selectedProject.id}
+              load={loadProjectNotifPrefs}
+              save={saveProjectNotifPrefs}
+              title="Project notifications"
+              description="How you're notified for work in this project. Overrides your workspace and account defaults."
+            />
+          )}
+
           {isProjectsTab && selectedProject && projectSection === 'states' && (
             <div className="space-y-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -2313,7 +2352,7 @@ export function SettingsPage() {
                               No states in this group.
                             </p>
                           ) : (
-                            states.map((st) => (
+                            states.map((st, stIndex) => (
                               <Card
                                 key={st.id}
                                 variant="outlined"
@@ -2329,8 +2368,40 @@ export function SettingsPage() {
                                   <span className="text-sm font-medium text-(--txt-primary)">
                                     {st.name}
                                   </span>
+                                  {st.default && (
+                                    <span className="rounded-full bg-(--bg-accent-subtle) px-2 py-0.5 text-[11px] font-medium text-(--txt-accent-primary)">
+                                      Default
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    aria-label={`Move ${st.name} up`}
+                                    disabled={stIndex === 0}
+                                    onClick={() => moveStateWithinGroup(st, -1)}
+                                    className="flex size-7 items-center justify-center rounded-(--radius-md) text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary) disabled:opacity-30 disabled:hover:bg-transparent"
+                                  >
+                                    ↑
+                                  </button>
+                                  <button
+                                    type="button"
+                                    aria-label={`Move ${st.name} down`}
+                                    disabled={stIndex === states.length - 1}
+                                    onClick={() => moveStateWithinGroup(st, 1)}
+                                    className="flex size-7 items-center justify-center rounded-(--radius-md) text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary) disabled:opacity-30 disabled:hover:bg-transparent"
+                                  >
+                                    ↓
+                                  </button>
+                                  {!st.default && (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => setStateAsDefault(st)}
+                                    >
+                                      Set default
+                                    </Button>
+                                  )}
                                   <Button
                                     size="sm"
                                     variant="secondary"
@@ -2494,6 +2565,23 @@ export function SettingsPage() {
                       <p className="mt-0.5 text-sm text-(--txt-secondary)">
                         Devlane will auto archive work items that have been completed or canceled.
                       </p>
+                      {autoArchive && (
+                        <label className="mt-2 flex items-center gap-2 text-sm text-(--txt-secondary)">
+                          Archive after
+                          <select
+                            value={autoArchiveMonths}
+                            disabled={autoArchiveSaving}
+                            onChange={(e) => persistAutoArchive(true, Number(e.target.value))}
+                            className="rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-2 py-1 text-sm text-(--txt-primary) focus:outline-none focus:border-(--border-strong)"
+                          >
+                            <option value={1}>1 month</option>
+                            <option value={3}>3 months</option>
+                            <option value={6}>6 months</option>
+                            <option value={12}>12 months</option>
+                          </select>
+                          of inactivity
+                        </label>
+                      )}
                     </div>
                   </div>
                   <button
@@ -2501,7 +2589,8 @@ export function SettingsPage() {
                     role="switch"
                     aria-checked={autoArchive}
                     aria-labelledby={`auto-archive-toggle-${selectedProjectId ?? 'project'}`}
-                    onClick={() => setAutoArchive(!autoArchive)}
+                    disabled={autoArchiveSaving}
+                    onClick={() => persistAutoArchive(!autoArchive, autoArchiveMonths)}
                     className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${autoArchive ? 'bg-(--brand-default)' : 'bg-(--neutral-400)'}`}
                   >
                     <span
@@ -2525,6 +2614,23 @@ export function SettingsPage() {
                         Devlane will automatically close work items that haven&apos;t been completed
                         or canceled.
                       </p>
+                      {autoClose && (
+                        <label className="mt-2 flex items-center gap-2 text-sm text-(--txt-secondary)">
+                          Close after
+                          <select
+                            value={autoCloseMonths}
+                            disabled={autoCloseSaving}
+                            onChange={(e) => persistAutoClose(true, Number(e.target.value))}
+                            className="rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-2 py-1 text-sm text-(--txt-primary) focus:outline-none focus:border-(--border-strong)"
+                          >
+                            <option value={1}>1 month</option>
+                            <option value={3}>3 months</option>
+                            <option value={6}>6 months</option>
+                            <option value={12}>12 months</option>
+                          </select>
+                          of inactivity
+                        </label>
+                      )}
                     </div>
                   </div>
                   <button
@@ -2532,7 +2638,8 @@ export function SettingsPage() {
                     role="switch"
                     aria-checked={autoClose}
                     aria-labelledby={`auto-close-toggle-${selectedProjectId ?? 'project'}`}
-                    onClick={() => setAutoClose(!autoClose)}
+                    disabled={autoCloseSaving}
+                    onClick={() => persistAutoClose(!autoClose, autoCloseMonths)}
                     className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${autoClose ? 'bg-(--brand-default)' : 'bg-(--neutral-400)'}`}
                   >
                     <span
@@ -2923,6 +3030,20 @@ export function SettingsPage() {
                 )}
               </div>
             </div>
+          )}
+
+          {!isAccountTab && !isProjectsTab && section === 'notifications' && workspaceSlug && (
+            <NotificationPreferencesPanel
+              key={workspaceSlug}
+              load={loadWorkspaceNotifPrefs}
+              save={saveWorkspaceNotifPrefs}
+              title="Workspace notifications"
+              description="How you're notified for work in this workspace. Overrides your account defaults; projects can override this."
+            />
+          )}
+
+          {!isAccountTab && !isProjectsTab && section === 'api-tokens' && workspaceSlug && (
+            <WorkspaceApiTokensPanel workspaceSlug={workspaceSlug} />
           )}
 
           {!isAccountTab && !isProjectsTab && section === 'integrations' && workspaceSlug && (

@@ -11,6 +11,15 @@ import (
 
 var ErrStateNotFound = errors.New("state not found")
 
+// ErrInvalidStateGroup is returned when an update sets a group outside the
+// accepted workflow groups.
+var ErrInvalidStateGroup = errors.New("invalid state group")
+
+// validStateGroups is the accepted set of workflow-state groups.
+var validStateGroups = map[string]bool{
+	"backlog": true, "unstarted": true, "started": true, "completed": true, "cancelled": true,
+}
+
 // DefaultProjectStateNames are seeded for new projects (without triage).
 var DefaultProjectStateNames = []string{"Backlog", "Todo", "In Progress", "Done", "Cancelled"}
 
@@ -146,21 +155,58 @@ func (s *StateService) GetByID(ctx context.Context, workspaceSlug string, projec
 	return st, nil
 }
 
-func (s *StateService) Update(ctx context.Context, workspaceSlug string, projectID, stateID uuid.UUID, userID uuid.UUID, name, color *string) (*model.State, error) {
+func (s *StateService) Update(ctx context.Context, workspaceSlug string, projectID, stateID uuid.UUID, userID uuid.UUID, name, color, group *string, sequence *float64, isDefault *bool) (*model.State, error) {
 	st, err := s.GetByID(ctx, workspaceSlug, projectID, stateID, userID)
 	if err != nil {
 		return nil, err
 	}
+	// Write only the columns that changed so a full-row save can't clobber the
+	// default flag (which is owned by the atomic SetDefault path).
+	changed := map[string]any{}
 	if name != nil {
 		st.Name = *name
+		changed["name"] = *name
 	}
 	if color != nil {
 		st.Color = *color
+		changed["color"] = *color
 	}
-	if err := s.ss.Update(ctx, st); err != nil {
+	if group != nil {
+		if !validStateGroups[*group] {
+			return nil, ErrInvalidStateGroup
+		}
+		st.Group = *group
+		changed["group"] = *group
+	}
+	if sequence != nil {
+		st.Sequence = *sequence
+		changed["sequence"] = *sequence
+	}
+	if isDefault != nil && !*isDefault {
+		st.Default = false
+		changed["default"] = false
+	}
+	if err := s.ss.UpdateFields(ctx, stateID, changed); err != nil {
 		return nil, err
 	}
+	// Making a state the default must clear every other state's flag, so it runs
+	// as its own atomic operation.
+	if isDefault != nil && *isDefault {
+		if err := s.ss.SetDefault(ctx, projectID, stateID); err != nil {
+			return nil, err
+		}
+		st.Default = true
+	}
 	return st, nil
+}
+
+// Reorder atomically assigns new sequence values to a set of the project's
+// states so a partial failure can't leave the order half-applied.
+func (s *StateService) Reorder(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID, items []store.StateSequence) error {
+	if _, err := s.ensureProjectAccess(ctx, workspaceSlug, projectID, userID); err != nil {
+		return err
+	}
+	return s.ss.ReorderSequences(ctx, projectID, items)
 }
 
 func (s *StateService) Delete(ctx context.Context, workspaceSlug string, projectID, stateID uuid.UUID, userID uuid.UUID) error {

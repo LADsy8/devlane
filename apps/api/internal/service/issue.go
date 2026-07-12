@@ -160,23 +160,31 @@ func (s *IssueService) autoSubscribe(ctx context.Context, issue *model.Issue, us
 // recordActivity inserts one issue_activities row. Errors are logged-and-ignored
 // — we never fail an issue update because the activity write fails.
 func (s *IssueService) recordActivity(ctx context.Context, issue *model.Issue, userID uuid.UUID, field string, oldVal, newVal string) {
-	if s.activity == nil {
+	recordIssueActivity(ctx, s.activity, issue, userID, field, oldVal, newVal)
+}
+
+// recordIssueActivity writes one issue_activities row. It is a package-level
+// helper so services that own their own data (attachments, comments) can log
+// against an issue without depending on IssueService. Errors are
+// logged-and-ignored, and a nil store or issue is a no-op, so activity
+// bookkeeping never fails the user's primary action.
+func recordIssueActivity(ctx context.Context, activity *store.IssueActivityStore, issue *model.Issue, userID uuid.UUID, field, oldVal, newVal string) {
+	if activity == nil || issue == nil {
 		return
 	}
-	verb := "updated"
 	f := field
 	row := &model.IssueActivity{
 		IssueID:     &issue.ID,
 		ProjectID:   issue.ProjectID,
 		WorkspaceID: issue.WorkspaceID,
-		Verb:        verb,
+		Verb:        "updated",
 		Field:       &f,
 		OldValue:    nullableStr(oldVal),
 		NewValue:    nullableStr(newVal),
 		ActorID:     &userID,
 		CreatedByID: &userID,
 	}
-	_ = s.activity.Create(ctx, row)
+	_ = activity.Create(ctx, row)
 }
 
 func nullableStr(s string) *string {
@@ -645,41 +653,73 @@ func (s *IssueService) Update(ctx context.Context, workspaceSlug string, project
 	prevParent := uuidString(issue.ParentID)
 	prevDescription := issue.DescriptionHTML
 
+	// Write only the columns this PATCH actually changed. A full-row Save would
+	// re-write every column from the in-memory snapshot, so a concurrent PATCH to
+	// a different field would be silently reverted (lost update).
+	changed := map[string]any{"updated_by_id": &userID}
 	if name != nil {
 		issue.Name = *name
+		changed["name"] = *name
 	}
 	if priority != nil {
 		issue.Priority = *priority
+		changed["priority"] = *priority
 	}
 	if description != nil {
 		issue.DescriptionHTML = *description
+		changed["description_html"] = *description
 	}
 	if stateID != nil {
 		issue.StateID = stateID
+		changed["state_id"] = stateID
 	}
 	if startDateSet {
 		issue.StartDate = startDate // nil clears the date
+		changed["start_date"] = startDate
 	}
 	if targetDateSet {
 		issue.TargetDate = targetDate
+		changed["target_date"] = targetDate
 	}
 	if parentID != nil {
 		issue.ParentID = parentID
+		changed["parent_id"] = parentID
 	}
 	if isDraft != nil {
 		issue.IsDraft = *isDraft
+		changed["is_draft"] = *isDraft
 	}
 	if issueType != nil && *issueType != "" {
 		issue.Type = *issueType
+		changed["type"] = *issueType
 	}
 	if estimatePointIDSet {
 		issue.EstimatePointID = estimatePointID
+		changed["estimate_point_id"] = estimatePointID
 	}
 	if sortOrder != nil {
 		issue.SortOrder = *sortOrder
+		changed["sort_order"] = *sortOrder
+	}
+	// Snapshot the previous description before it's overwritten, so the history
+	// is complete and recoverable. Done before the save so a snapshot failure
+	// aborts the edit rather than silently losing the prior text.
+	if description != nil && prevDescription != issue.DescriptionHTML {
+		if err := s.is.CreateDescriptionVersion(ctx, &model.IssueDescriptionVersion{
+			IssueID:         issue.ID,
+			DescriptionHTML: prevDescription,
+			CreatedByID:     &userID,
+			OwnedByID:       &userID,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	issue.UpdatedByID = &userID
-	if err := s.is.Update(ctx, issue); err != nil {
+	if err := s.is.UpdateFields(ctx, issue.ID, changed); err != nil {
+		// The issue was deleted between the load above and this write.
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrIssueNotFound
+		}
 		return nil, err
 	}
 
@@ -819,6 +859,46 @@ func (s *IssueService) ListAssignees(ctx context.Context, workspaceSlug string, 
 		return nil, err
 	}
 	return s.is.ListAssigneesForIssue(ctx, issueID)
+}
+
+// ListDescriptionVersions returns the issue's description history (newest first).
+func (s *IssueService) ListDescriptionVersions(ctx context.Context, workspaceSlug string, projectID, issueID uuid.UUID, userID uuid.UUID) ([]model.IssueDescriptionVersion, error) {
+	if _, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID); err != nil {
+		return nil, err
+	}
+	return s.is.ListDescriptionVersions(ctx, issueID)
+}
+
+// RestoreDescriptionVersion sets the issue's description back to a past version.
+// The current description is snapshotted first so a restore is itself undoable.
+func (s *IssueService) RestoreDescriptionVersion(ctx context.Context, workspaceSlug string, projectID, issueID, versionID uuid.UUID, userID uuid.UUID) (*model.Issue, error) {
+	issue, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID)
+	if err != nil {
+		return nil, err
+	}
+	version, err := s.is.GetDescriptionVersion(ctx, versionID)
+	if err != nil || version.IssueID != issue.ID {
+		return nil, ErrIssueNotFound
+	}
+	if version.DescriptionHTML == issue.DescriptionHTML {
+		return issue, nil // nothing to restore
+	}
+	// Snapshot the current description before overwriting it. Abort on failure so
+	// a restore never destroys the current text without recording it first.
+	if err := s.is.CreateDescriptionVersion(ctx, &model.IssueDescriptionVersion{
+		IssueID:         issue.ID,
+		DescriptionHTML: issue.DescriptionHTML,
+		CreatedByID:     &userID,
+		OwnedByID:       &userID,
+	}); err != nil {
+		return nil, err
+	}
+	issue.DescriptionHTML = version.DescriptionHTML
+	issue.UpdatedByID = &userID
+	if err := s.is.Update(ctx, issue); err != nil {
+		return nil, err
+	}
+	return issue, nil
 }
 
 func (s *IssueService) AddAssignee(ctx context.Context, workspaceSlug string, projectID, issueID uuid.UUID, userID uuid.UUID, assigneeID uuid.UUID) error {
@@ -1076,7 +1156,8 @@ func (s *IssueService) CreateRelations(ctx context.Context, workspaceSlug string
 // RemoveRelation deletes both the forward and reverse relation rows.
 func (s *IssueService) RemoveRelation(ctx context.Context, workspaceSlug string, projectID, issueID uuid.UUID, userID uuid.UUID, relationType string, relatedIssueID uuid.UUID) error {
 	// Verify the issue belongs to the given project and the user has access.
-	if _, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID); err != nil {
+	issue, err := s.GetByID(ctx, workspaceSlug, projectID, issueID, userID)
+	if err != nil {
 		return err
 	}
 	if err := s.is.DeleteRelation(ctx, issueID, relatedIssueID, relationType); err != nil {
@@ -1086,6 +1167,7 @@ func (s *IssueService) RemoveRelation(ctx context.Context, workspaceSlug string,
 	// Best-effort for the reverse: the related issue may be in a different project,
 	// and a missing reverse row (already cleaned up) is not an error.
 	_ = s.is.DeleteRelation(ctx, relatedIssueID, issueID, reverseType)
+	s.recordActivity(ctx, issue, userID, "relation_removed", relationType+":"+relatedIssueID.String(), "")
 	return nil
 }
 
@@ -1116,7 +1198,17 @@ func (s *IssueService) CreateLink(ctx context.Context, workspaceSlug string, pro
 	if err := s.is.CreateLink(ctx, l); err != nil {
 		return nil, err
 	}
+	s.recordActivity(ctx, issue, userID, "link_added", "", linkLabel(l))
 	return l, nil
+}
+
+// linkLabel is the human-readable identity of a link for the activity feed:
+// its title when set, otherwise its URL.
+func linkLabel(l *model.IssueLink) string {
+	if l.Title != "" {
+		return l.Title
+	}
+	return l.URL
 }
 
 // UpdateLink edits a link's title or URL.
@@ -1143,6 +1235,9 @@ func (s *IssueService) UpdateLink(ctx context.Context, workspaceSlug string, pro
 	if err := s.is.UpdateLink(ctx, l); err != nil {
 		return nil, err
 	}
+	if issue, err := s.is.GetByID(ctx, issueID); err == nil {
+		s.recordActivity(ctx, issue, userID, "link_updated", "", linkLabel(l))
+	}
 	return l, nil
 }
 
@@ -1161,7 +1256,13 @@ func (s *IssueService) DeleteLink(ctx context.Context, workspaceSlug string, pro
 	if l.IssueID != issueID {
 		return ErrIssueNotFound
 	}
-	return s.is.DeleteLink(ctx, linkID)
+	if err := s.is.DeleteLink(ctx, linkID); err != nil {
+		return err
+	}
+	if issue, err := s.is.GetByID(ctx, issueID); err == nil {
+		s.recordActivity(ctx, issue, userID, "link_removed", linkLabel(l), "")
+	}
+	return nil
 }
 
 // --- Epics ---

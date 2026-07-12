@@ -25,13 +25,30 @@ export const stateService = {
     workspaceSlug: string,
     projectId: string,
     stateId: string,
-    payload: { name?: string; color?: string },
+    payload: {
+      name?: string;
+      color?: string;
+      group?: string;
+      sequence?: number;
+      default?: boolean;
+    },
   ): Promise<StateApiResponse> {
     const { data } = await apiClient.patch<StateApiResponse>(
       `/api/workspaces/${encodeURIComponent(workspaceSlug)}/projects/${encodeURIComponent(projectId)}/states/${encodeURIComponent(stateId)}/`,
       payload,
     );
     return data;
+  },
+
+  async reorder(
+    workspaceSlug: string,
+    projectId: string,
+    states: { id: string; sequence: number }[],
+  ): Promise<void> {
+    await apiClient.post(
+      `/api/workspaces/${encodeURIComponent(workspaceSlug)}/projects/${encodeURIComponent(projectId)}/states/reorder/`,
+      { states },
+    );
   },
 
   async delete(workspaceSlug: string, projectId: string, stateId: string): Promise<void> {

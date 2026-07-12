@@ -339,13 +339,7 @@ func (h *AuthHandler) GetNotificationPreferences(c *gin.Context) {
 		return
 	}
 	if h.NotifPrefs == nil {
-		c.JSON(http.StatusOK, gin.H{
-			"property_change": true,
-			"state_change":    true,
-			"comment":         true,
-			"mention":         true,
-			"issue_completed": true,
-		})
+		c.JSON(http.StatusOK, notifPrefResponse(model.DefaultNotificationPreference()))
 		return
 	}
 	p, err := h.NotifPrefs.GetGlobal(c.Request.Context(), user.ID)
@@ -354,31 +348,10 @@ func (h *AuthHandler) GetNotificationPreferences(c *gin.Context) {
 		return
 	}
 	if p == nil {
-		c.JSON(http.StatusOK, gin.H{
-			"property_change": true,
-			"state_change":    true,
-			"comment":         true,
-			"mention":         true,
-			"issue_completed": true,
-		})
+		c.JSON(http.StatusOK, notifPrefResponse(model.DefaultNotificationPreference()))
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"property_change": p.PropertyChange,
-		"state_change":    p.StateChange,
-		"comment":         p.Comment,
-		"mention":         p.Mention,
-		"issue_completed": p.IssueCompleted,
-	})
-}
-
-// UpdateNotificationPreferencesRequest is the body for PUT /api/users/me/notification-preferences/
-type UpdateNotificationPreferencesRequest struct {
-	PropertyChange *bool `json:"property_change"`
-	StateChange    *bool `json:"state_change"`
-	Comment        *bool `json:"comment"`
-	Mention        *bool `json:"mention"`
-	IssueCompleted *bool `json:"issue_completed"`
+	c.JSON(http.StatusOK, notifPrefResponse(*p))
 }
 
 // UpdateNotificationPreferences updates account-level notification preferences.
@@ -393,7 +366,7 @@ func (h *AuthHandler) UpdateNotificationPreferences(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Not configured"})
 		return
 	}
-	var req UpdateNotificationPreferencesRequest
+	var req NotifPrefBody
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "detail": err.Error()})
 		return
@@ -404,39 +377,16 @@ func (h *AuthHandler) UpdateNotificationPreferences(c *gin.Context) {
 		return
 	}
 	if p == nil {
-		p = &model.UserNotificationPreference{UserID: user.ID}
-		p.PropertyChange = true
-		p.StateChange = true
-		p.Comment = true
-		p.Mention = true
-		p.IssueCompleted = true
+		def := model.DefaultNotificationPreference()
+		def.UserID = user.ID
+		p = &def
 	}
-	if req.PropertyChange != nil {
-		p.PropertyChange = *req.PropertyChange
-	}
-	if req.StateChange != nil {
-		p.StateChange = *req.StateChange
-	}
-	if req.Comment != nil {
-		p.Comment = *req.Comment
-	}
-	if req.Mention != nil {
-		p.Mention = *req.Mention
-	}
-	if req.IssueCompleted != nil {
-		p.IssueCompleted = *req.IssueCompleted
-	}
+	applyNotifPrefBody(p, req)
 	if err := h.NotifPrefs.UpsertGlobal(c.Request.Context(), p); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save preferences"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"property_change": p.PropertyChange,
-		"state_change":    p.StateChange,
-		"comment":         p.Comment,
-		"mention":         p.Mention,
-		"issue_completed": p.IssueCompleted,
-	})
+	c.JSON(http.StatusOK, notifPrefResponse(*p))
 }
 
 // ListTokens returns the current user's API tokens (without secret values).

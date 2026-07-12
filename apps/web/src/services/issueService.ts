@@ -7,6 +7,7 @@ import type {
   IssueRelationApiResponse,
   IssueRelationType,
   IssueReactionApiResponse,
+  IssueDescriptionVersionApiResponse,
   CreateIssueRequest,
 } from '../api/types';
 
@@ -118,6 +119,29 @@ export const issueService = {
   ): Promise<IssueActivityApiResponse[]> {
     const { data } = await apiClient.get<IssueActivityApiResponse[]>(
       `${base(workspaceSlug, projectId, issueId)}/activities/`,
+    );
+    return data;
+  },
+
+  async listDescriptionVersions(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+  ): Promise<IssueDescriptionVersionApiResponse[]> {
+    const { data } = await apiClient.get<IssueDescriptionVersionApiResponse[]>(
+      `${base(workspaceSlug, projectId, issueId)}/description-versions/`,
+    );
+    return data;
+  },
+
+  async restoreDescriptionVersion(
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    versionId: string,
+  ): Promise<IssueApiResponse> {
+    const { data } = await apiClient.post<IssueApiResponse>(
+      `${base(workspaceSlug, projectId, issueId)}/description-versions/${encodeURIComponent(versionId)}/restore/`,
     );
     return data;
   },

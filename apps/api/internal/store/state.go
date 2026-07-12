@@ -66,6 +66,59 @@ func (s *StateStore) Update(ctx context.Context, st *model.State) error {
 	return s.db.WithContext(ctx).Save(st).Error
 }
 
+// UpdateFields writes only the given columns for one state, so a concurrent
+// change to another column (notably the default flag) isn't clobbered by a
+// full-row save.
+func (s *StateStore) UpdateFields(ctx context.Context, stateID uuid.UUID, fields map[string]any) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	return s.db.WithContext(ctx).
+		Model(&model.State{}).
+		Where("id = ? AND deleted_at IS NULL", stateID).
+		Updates(fields).Error
+}
+
+// StateSequence pairs a state with its new order value for a reorder.
+type StateSequence struct {
+	ID       uuid.UUID
+	Sequence float64
+}
+
+// ReorderSequences assigns new sequence values to several states in one
+// transaction, so a partial failure can't leave the order half-applied. Each
+// update is scoped to projectID so a caller can't touch another project's states.
+func (s *StateStore) ReorderSequences(ctx context.Context, projectID uuid.UUID, items []StateSequence) error {
+	if len(items) == 0 {
+		return nil
+	}
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, it := range items {
+			if err := tx.Model(&model.State{}).
+				Where("id = ? AND project_id = ? AND deleted_at IS NULL", it.ID, projectID).
+				Update("sequence", it.Sequence).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// SetDefault makes stateID the project's only default state, clearing the flag
+// on every other state in the project in one transaction.
+func (s *StateStore) SetDefault(ctx context.Context, projectID, stateID uuid.UUID) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.State{}).
+			Where("project_id = ? AND deleted_at IS NULL", projectID).
+			Updates(map[string]any{"default": false}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.State{}).
+			Where("id = ? AND deleted_at IS NULL", stateID).
+			Updates(map[string]any{"default": true}).Error
+	})
+}
+
 func (s *StateStore) Delete(ctx context.Context, id uuid.UUID) error {
 	return s.db.WithContext(ctx).Where("id = ?", id).Delete(&model.State{}).Error
 }

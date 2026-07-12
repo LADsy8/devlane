@@ -11,3 +11,5 @@ local/
 docs/
 main.exe
 .playwright-mcp/
+.claude/
+graphify-out/
