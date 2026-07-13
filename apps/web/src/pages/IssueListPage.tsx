@@ -32,7 +32,7 @@ import type {
 import type { Priority } from '../types';
 import type { StateGroup } from '../types/workspaceViewFilters';
 import type { SavedViewDisplayPropertyId } from '../lib/projectSavedViewDisplay';
-import { buildGroupedIssues } from '../lib/issueListGroupAndSort';
+import { buildGroupedIssues, buildSubGroupedIssues } from '../lib/issueListGroupAndSort';
 import {
   cloneDefaultProjectIssuesDisplay,
   fromDisplayPayload,
@@ -466,6 +466,37 @@ export function IssueListPage() {
     ],
   );
 
+  // Optional second-level grouping (swimlanes). Null unless both a primary and
+  // a distinct secondary dimension are selected; layouts fall back to the flat
+  // groupedIssues when it's null.
+  const subGroupedIssues = useMemo(
+    () =>
+      buildSubGroupedIssues({
+        baseForGrouping,
+        groupBy: listDisplay.groupBy,
+        subGroupBy: listDisplay.subGroupBy,
+        orderBy: listDisplay.orderBy,
+        showEmptyGroups: listDisplay.showEmptyGroups,
+        states,
+        cycles,
+        modules,
+        labels,
+        members,
+      }),
+    [
+      baseForGrouping,
+      listDisplay.groupBy,
+      listDisplay.subGroupBy,
+      listDisplay.orderBy,
+      listDisplay.showEmptyGroups,
+      states,
+      cycles,
+      modules,
+      labels,
+      members,
+    ],
+  );
+
   // Stable "now" timestamp used by overdue/relative-date cells. Sampled once
   // at mount via useState's lazy initializer (allowed to be impure) so each
   // row stays pure for the rest of the render-tree's lifetime.
@@ -782,6 +813,7 @@ export function IssueListPage() {
             <IssueLayoutList
               {...layoutProps}
               groupedIssues={groupedIssues}
+              subGroupedIssues={subGroupedIssues}
               hasCol={hasCol}
               showEmptyGroups={listDisplay.showEmptyGroups}
               subWorkCountByParentId={subWorkCountByParentId}
@@ -796,6 +828,7 @@ export function IssueListPage() {
             <IssueLayoutBoard
               {...layoutProps}
               {...groupedLayoutProps}
+              subGroupedIssues={subGroupedIssues}
               groupBy={listDisplay.groupBy}
               onCardMove={handleCardMove}
               onUpdateIssue={handleInlineUpdate}

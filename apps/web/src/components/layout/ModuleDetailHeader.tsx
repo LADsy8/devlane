@@ -665,7 +665,11 @@ export function ModuleDetailHeader({
             </span>
           }
         >
-          <ProjectIssuesDisplayPanel display={display} setDisplay={setDisplay} />
+          <ProjectIssuesDisplayPanel
+            display={display}
+            setDisplay={setDisplay}
+            enableSubGroup={false}
+          />
         </Dropdown>
 
         <Link

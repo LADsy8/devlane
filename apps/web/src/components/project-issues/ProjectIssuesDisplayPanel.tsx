@@ -4,7 +4,10 @@ import {
   ALL_SAVED_VIEW_DISPLAY_PROPERTIES,
   SAVED_VIEW_DISPLAY_PROPERTY_LABELS,
 } from '../../lib/projectSavedViewDisplay';
-import type { ProjectIssuesDisplayState } from '../../lib/projectIssuesDisplay';
+import {
+  normalizeSubGroupBy,
+  type ProjectIssuesDisplayState,
+} from '../../lib/projectIssuesDisplay';
 
 const IconChevronDown = () => (
   <svg
@@ -48,7 +51,7 @@ const IconCheck = () => (
   </svg>
 );
 
-type SectionId = 'properties' | 'group' | 'order';
+type SectionId = 'properties' | 'group' | 'subgroup' | 'order';
 
 /** Order matches the work-items Display reference. */
 const GROUP_OPTIONS: { value: SavedViewGroupBy; label: string }[] = [
@@ -130,14 +133,27 @@ const displayPanelCheckboxClass =
 export interface ProjectIssuesDisplayPanelProps {
   display: ProjectIssuesDisplayState;
   setDisplay: React.Dispatch<React.SetStateAction<ProjectIssuesDisplayState>>;
+  /** Show the "Sub-group by" control. Off where the layout doesn't render it. */
+  enableSubGroup?: boolean;
 }
 
-export function ProjectIssuesDisplayPanel({ display, setDisplay }: ProjectIssuesDisplayPanelProps) {
+export function ProjectIssuesDisplayPanel({
+  display,
+  setDisplay,
+  enableSubGroup = true,
+}: ProjectIssuesDisplayPanelProps) {
   const [sections, setSections] = useState<Record<SectionId, boolean>>({
     properties: true,
     group: true,
+    subgroup: true,
     order: true,
   });
+
+  // Sub-group options exclude the current primary group-by (a dimension can't
+  // sub-group by itself); "None" turns sub-grouping off.
+  const subGroupOptions = GROUP_OPTIONS.filter(
+    (opt) => opt.value === 'none' || opt.value !== display.groupBy,
+  );
 
   const toggleSection = (id: SectionId) => {
     setSections((s) => ({ ...s, [id]: !s[id] }));
@@ -195,11 +211,40 @@ export function ProjectIssuesDisplayPanel({ display, setDisplay }: ProjectIssues
                 value={opt.value}
                 label={opt.label}
                 selected={display.groupBy === opt.value}
-                onSelect={(v) => setDisplay((p) => ({ ...p, groupBy: v }))}
+                onSelect={(v) =>
+                  setDisplay((p) => ({
+                    ...p,
+                    groupBy: v,
+                    subGroupBy: normalizeSubGroupBy(v, p.subGroupBy),
+                  }))
+                }
               />
             ))}
           </div>
         </CollapsibleSection>
+
+        {enableSubGroup && display.groupBy !== 'none' && (
+          <CollapsibleSection
+            id="subgroup"
+            title="Sub-group by"
+            expanded={sections.subgroup}
+            onToggle={toggleSection}
+          >
+            <div className="flex flex-col gap-0.5">
+              {subGroupOptions.map((opt) => (
+                <RadioRow
+                  key={opt.value}
+                  value={opt.value}
+                  label={opt.label}
+                  selected={display.subGroupBy === opt.value}
+                  onSelect={(v) =>
+                    setDisplay((p) => ({ ...p, subGroupBy: normalizeSubGroupBy(p.groupBy, v) }))
+                  }
+                />
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
 
         <CollapsibleSection
           id="order"

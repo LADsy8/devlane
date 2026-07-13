@@ -20,12 +20,17 @@ import { isOverdue, membersFromAssigneeIds } from '../../../lib/issueRowHelpers'
 import { cn } from '../../../lib/utils';
 import type { IssueApiResponse, LabelApiResponse } from '../../../api/types';
 import type { Priority } from '../../../types';
-import type { GroupedIssuesResult } from '../../../lib/issueListGroupAndSort';
+import type {
+  GroupedIssuesResult,
+  SubGroupedIssuesResult,
+} from '../../../lib/issueListGroupAndSort';
 import type { IssueLayoutProps } from './IssueLayoutTypes';
 
 interface IssueLayoutListProps extends IssueLayoutProps {
   /** Pre-built grouping result from the parent (state/priority/cycle/etc. groupings). */
   groupedIssues: GroupedIssuesResult;
+  /** Optional second-level grouping; when present, sections are nested. */
+  subGroupedIssues?: SubGroupedIssuesResult | null;
   /**
    * Filter columns (display properties) — true means render. Accepts the same
    * narrow `SavedViewDisplayPropertyId` keys the parent's `hasCol` checks; we
@@ -63,6 +68,7 @@ export function IssueLayoutList({
   issueHref,
   now,
   groupedIssues,
+  subGroupedIssues,
   hasCol,
   showEmptyGroups,
   subWorkCountByParentId,
@@ -332,6 +338,50 @@ export function IssueLayoutList({
       <ul className="w-full divide-y divide-(--border-subtle)">
         {flatList.map((issue, idx) => renderRow(issue, idx, flatList))}
       </ul>
+    );
+  }
+
+  // Nested (sub-grouped) rendering: each primary group holds sub-group sections.
+  if (subGroupedIssues) {
+    const sg = subGroupedIssues;
+    return (
+      <div className="space-y-8 px-4 py-4">
+        {sg.primaryOrder.map((primaryKey) => {
+          const bySub = sg.cells.get(primaryKey);
+          const primaryCount = sg.subOrder.reduce(
+            (n, subKey) => n + (bySub?.get(subKey)?.length ?? 0),
+            0,
+          );
+          if (primaryCount === 0 && !showEmptyGroups) return null;
+          return (
+            <section key={primaryKey} className="space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-(--txt-primary)">
+                {sg.primaryTitle(primaryKey)}
+                <span className="font-normal text-(--txt-tertiary)">{primaryCount}</span>
+              </h3>
+              <div className="space-y-3 border-l-2 border-(--border-subtle) pl-3">
+                {sg.subOrder.map((subKey) => {
+                  const cellIssues = bySub?.get(subKey) ?? [];
+                  if (cellIssues.length === 0 && !showEmptyGroups) return null;
+                  return (
+                    <section key={subKey} className="space-y-1.5">
+                      <h4 className="flex items-center gap-2 text-xs font-medium text-(--txt-secondary)">
+                        {sg.subTitle(subKey)}
+                        <span className="font-normal text-(--txt-tertiary)">
+                          {cellIssues.length}
+                        </span>
+                      </h4>
+                      <ul className="w-full divide-y divide-(--border-subtle) rounded-md border border-(--border-subtle) bg-(--bg-surface-1)">
+                        {cellIssues.map((issue) => renderRow(issue))}
+                      </ul>
+                    </section>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
     );
   }
 

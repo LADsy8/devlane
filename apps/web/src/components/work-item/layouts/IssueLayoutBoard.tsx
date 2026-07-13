@@ -17,7 +17,10 @@ import {
 } from '../EditableCells';
 import { DatePickerTrigger } from '../DatePickerTrigger';
 import { isOverdue, membersFromAssigneeIds } from '../../../lib/issueRowHelpers';
-import type { GroupedIssuesResult } from '../../../lib/issueListGroupAndSort';
+import type {
+  GroupedIssuesResult,
+  SubGroupedIssuesResult,
+} from '../../../lib/issueListGroupAndSort';
 import type {
   SavedViewDisplayPropertyId,
   SavedViewGroupBy,
@@ -38,6 +41,8 @@ import {
 
 interface IssueLayoutBoardProps extends IssueLayoutProps {
   groupedIssues?: GroupedIssuesResult;
+  /** Optional second-level grouping; when present the board renders swimlanes. */
+  subGroupedIssues?: SubGroupedIssuesResult | null;
   hasCol?: (key: SavedViewDisplayPropertyId) => boolean;
   groupBy?: SavedViewGroupBy;
   showEmptyGroups?: boolean;
@@ -59,6 +64,7 @@ export function IssueLayoutBoard({
   now,
   projectsById,
   groupedIssues,
+  subGroupedIssues,
   hasCol: hasColProp,
   groupBy,
   showEmptyGroups = false,
@@ -168,8 +174,12 @@ export function IssueLayoutBoard({
     return { columns, orphans };
   }, [groupedIssues, groupByStateGroup, states, issues, stateById, labelById, showEmptyGroups]);
 
+  // Drag-and-drop is disabled in swimlane mode to keep the cross-dimension
+  // interaction unambiguous (a drop would otherwise be both a column and a lane).
   const dndEnabled =
-    Boolean(onCardMove) && (groupByStateGroup || !groupedIssues || groupBy === 'states');
+    Boolean(onCardMove) &&
+    !subGroupedIssues &&
+    (groupByStateGroup || !groupedIssues || groupBy === 'states');
 
   const renderCard = (issue: IssueApiResponse) => (
     <BoardCard
@@ -213,6 +223,52 @@ export function IssueLayoutBoard({
     const target = resolveTargetStateId(columnKey, issue);
     return Boolean(target) && target !== issue.state_id;
   };
+
+  // Swimlanes: one horizontal band of columns (primary groups) per sub-group.
+  if (subGroupedIssues) {
+    const sg = subGroupedIssues;
+    return (
+      <div className="space-y-6 px-4 py-4">
+        {sg.subOrder.map((subKey) => {
+          const laneCount = sg.primaryOrder.reduce(
+            (n, pk) => n + (sg.cells.get(pk)?.get(subKey)?.length ?? 0),
+            0,
+          );
+          if (laneCount === 0 && !showEmptyGroups) return null;
+          return (
+            <section key={subKey} className="space-y-2">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-(--txt-primary)">
+                {sg.subTitle(subKey)}
+                <span className="font-normal text-(--txt-tertiary)">{laneCount}</span>
+              </h3>
+              <div className="flex gap-3 overflow-x-auto">
+                {sg.primaryOrder.map((pk) => {
+                  const items = sg.cells.get(pk)?.get(subKey) ?? [];
+                  if (items.length === 0 && !showEmptyGroups) return null;
+                  const color = stateById.get(pk)?.color ?? labelById.get(pk)?.color ?? undefined;
+                  return (
+                    <BoardColumn
+                      key={pk}
+                      title={sg.primaryTitle(pk)}
+                      color={color}
+                      count={items.length}
+                    >
+                      {items.map(renderCard)}
+                      {items.length === 0 && (
+                        <p className="px-2 py-6 text-center text-xs text-(--txt-tertiary)">
+                          No work items
+                        </p>
+                      )}
+                    </BoardColumn>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-3 overflow-x-auto px-4 py-4">
