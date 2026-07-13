@@ -76,7 +76,7 @@ export function CreateViewModal({ open, onClose, onCreated }: CreateViewModalPro
       navigate(`/${workspaceSlug}/views/${created.id}`);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t('views.failedToCreate', 'Failed to create view.'),
+        err instanceof Error ? err.message : t('views.createFailed', 'Failed to create view.'),
       );
     } finally {
       setSubmitting(false);

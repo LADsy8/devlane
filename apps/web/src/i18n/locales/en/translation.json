@@ -1409,6 +1409,7 @@
   "settings.export.failed": "Export failed. Please try again.",
   "settings.export.format": "Format",
   "settings.export.formatExcel": "Excel",
+  "settings.export.modalTitle": "Export {{format}}",
   "settings.export.next": "Next →",
   "settings.export.prev": "← Prev",
   "settings.export.previous": "Previous exports",

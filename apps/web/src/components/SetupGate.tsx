@@ -7,7 +7,7 @@ const PageFallback = () => {
   const { t } = useTranslation();
   return (
     <div className="flex items-center justify-center p-8 text-sm text-(--txt-tertiary)">
-      {t('common.loading', 'Loading...')}
+      {t('common.loading', 'Loading…')}
     </div>
   );
 };

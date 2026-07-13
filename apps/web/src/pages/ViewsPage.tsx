@@ -1072,7 +1072,7 @@ export function ViewsPage() {
               form="project-edit-view-form"
               disabled={editing || !editTitle.trim()}
             >
-              {editing ? t('views.saving', 'Saving...') : t('views.saveChanges', 'Save changes')}
+              {editing ? t('views.saving', 'Saving…') : t('views.saveChanges', 'Save changes')}
             </Button>
           </>
         }

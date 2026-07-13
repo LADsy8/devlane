@@ -49,7 +49,7 @@ export function ExportModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={t('settings.export.title', 'Export {{format}}', {
+      title={t('settings.export.modalTitle', 'Export {{format}}', {
         format: exportFormat.toUpperCase(),
       })}
       footer={

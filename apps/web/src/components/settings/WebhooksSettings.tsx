@@ -39,7 +39,7 @@ const emptyForm = (): Record<EventKey, boolean> & { url: string } => ({
 export function WebhooksSettings({ workspaceSlug }: WebhooksSettingsProps) {
   const { t } = useTranslation();
   const relTime = (iso?: string) =>
-    iso ? formatRelativeTime(iso) : t('common.unknown', 'unknown');
+    iso ? formatRelativeTime(iso) : t('common.unknown', 'Unknown');
   const [webhooks, setWebhooks] = useState<WebhookApiResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);

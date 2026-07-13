@@ -431,8 +431,8 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
         title={t('integrations.linkModalTitle', 'Link a GitHub repository to {{name}}', {
           name: linkingProjectId
             ? (projects.find((p) => p.id === linkingProjectId)?.name ??
-              t('common.project', 'project'))
-            : t('common.project', 'project'),
+              t('common.project', 'Project'))
+            : t('common.project', 'Project'),
         })}
         footer={
           <Button
