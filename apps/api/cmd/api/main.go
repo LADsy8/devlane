@@ -28,6 +28,10 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "admin" {
 		os.Exit(runAdmin(os.Args[2:]))
 	}
+	// Local development: `api seed` populates a demo workspace/project/issues.
+	if len(os.Args) > 1 && os.Args[1] == "seed" {
+		os.Exit(runSeed(os.Args[2:]))
+	}
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,

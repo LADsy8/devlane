@@ -66,7 +66,7 @@ Instance administrators can manage workspaces and instance settings from the ins
 
 1. **API** — From the `apps/api` directory, copy `.env.example` to `.env`, set your PostgreSQL and Redis (and optional RabbitMQ/MinIO) settings, run migrations, then start the server (see `apps/api/README.md`).
 2. **UI** — From the `apps/web` directory, run `npm install` and `npm run dev`. Point the UI at your local API using the configured base URL.
-3. **First run** — Complete instance setup in the browser (create admin account, then create a workspace and project).
+3. **First run** — Complete instance setup in the browser (create admin account, then create a workspace and project), or run `go run ./cmd/api seed` from `apps/api` to populate a demo user, workspace, project, and sample work items in one step (see [CONTRIBUTING](CONTRIBUTING.md)).
 
 For contribution workflow and code style, see [CONTRIBUTING](CONTRIBUTING.md) if present.
 
