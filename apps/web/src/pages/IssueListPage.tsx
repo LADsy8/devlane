@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui';
 import { CreateWorkItemModal } from '../components/CreateWorkItemModal';
+import { ImportCSVModal } from '../components/work-item/ImportCSVModal';
 import { workspaceService } from '../services/workspaceService';
 import { projectService } from '../services/projectService';
 import { issueService } from '../services/issueService';
@@ -97,6 +98,7 @@ export function IssueListPage() {
   const [project, setProject] = useState<ProjectApiResponse | null>(null);
   const [projects, setProjects] = useState<ProjectApiResponse[]>([]);
   const [issues, setIssues] = useState<IssueApiResponse[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
   const [states, setStates] = useState<StateApiResponse[]>([]);
   const [labels, setLabels] = useState<LabelApiResponse[]>([]);
   const [cycles, setCycles] = useState<CycleApiResponse[]>([]);
@@ -683,6 +685,9 @@ export function IssueListPage() {
             <IconPlus />
           </button>
         </h2>
+        <Button variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
+          Import CSV
+        </Button>
       </div>
 
       {issues.length === 0 ? (
@@ -830,6 +835,13 @@ export function IssueListPage() {
         defaultProjectId={project.id}
         onSave={handleCreateSave}
         createError={createError}
+      />
+      <ImportCSVModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        workspaceSlug={workspace.slug}
+        projectId={project.id}
+        onImported={refetchIssues}
       />
     </div>
   );

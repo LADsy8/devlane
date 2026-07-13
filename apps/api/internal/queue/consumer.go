@@ -160,6 +160,23 @@ func HandleWebhook(deliverer func(ctx context.Context, url, secret, event string
 	}
 }
 
+// HandleImport parses an import_run task and runs the given importer.
+func HandleImport(runner func(ctx context.Context, importerID string) error) TaskHandler {
+	return func(ctx context.Context, queue string, body []byte) error {
+		var msg struct {
+			Type    string        `json:"type"`
+			Payload ImportPayload `json:"payload"`
+		}
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return err
+		}
+		if msg.Type != TaskImportRun {
+			return nil
+		}
+		return runner(ctx, msg.Payload.ImporterID)
+	}
+}
+
 // NoopEmailSender is a no-op sender (log only). Replace with real SMTP in production.
 func NoopEmailSender(log *slog.Logger) func(ctx context.Context, to, subject, body string) error {
 	return func(ctx context.Context, to, subject, body string) error {

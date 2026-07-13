@@ -35,7 +35,9 @@ type Config struct {
 }
 
 // New builds and returns the Gin engine with /api/ and /auth/ routes.
-func New(cfg Config) *gin.Engine {
+// New builds the Gin engine and also returns the ImporterService so the caller
+// (cmd/api) can register the background import worker on the task queue.
+func New(cfg Config) (*gin.Engine, *service.ImporterService) {
 	if cfg.Log == nil {
 		cfg.Log = slog.Default()
 	}
@@ -177,6 +179,8 @@ func New(cfg Config) *gin.Engine {
 	issueSvc.SetReactionStore(issueReactionStore)
 	issueSvc.SetStateStore(stateStore)
 	issueSvc.SetLabelStore(labelStore)
+	importerStore := store.NewImporterStore(cfg.DB)
+	importerSvc := service.NewImporterService(importerStore, workspaceStore, projectStore, stateStore, issueSvc, cfg.Queue, cfg.Log)
 	commentReactionStore := store.NewCommentReactionStore(cfg.DB)
 	commentSvc := service.NewCommentService(commentStore, issueStore, projectStore, workspaceStore)
 	commentSvc.SetReactionStore(commentReactionStore)
@@ -247,6 +251,7 @@ func New(cfg Config) *gin.Engine {
 	estimateHandler := &handler.EstimateHandler{Estimate: estimateSvc}
 	intakeHandler := &handler.IntakeHandler{Intake: intakeSvc}
 	issueHandler := &handler.IssueHandler{Issue: issueSvc}
+	importerHandler := &handler.ImporterHandler{Importers: importerSvc}
 	issueLinkHandler := &handler.IssueLinkHandler{Issue: issueSvc}
 	attachmentHandler := &handler.AttachmentHandler{Attachment: attachmentSvc}
 	epicHandler := &handler.EpicHandler{Issue: issueSvc}
@@ -369,6 +374,11 @@ func New(cfg Config) *gin.Engine {
 		api.GET("/workspaces/:slug/projects/:projectId/intake-issues/", intakeHandler.List)
 		api.GET("/workspaces/:slug/projects/:projectId/intake-issues/count/", intakeHandler.Count)
 		api.PATCH("/workspaces/:slug/projects/:projectId/intake-issues/:pk/", intakeHandler.Transition)
+
+		// Bulk import (CSV) for a project.
+		api.GET("/workspaces/:slug/projects/:projectId/importers/", importerHandler.List)
+		api.POST("/workspaces/:slug/projects/:projectId/importers/", importerHandler.Create)
+		api.GET("/workspaces/:slug/projects/:projectId/importers/:importerId/", importerHandler.Get)
 
 		api.GET("/workspaces/:slug/projects/:projectId/issues/", issueHandler.List)
 		api.POST("/workspaces/:slug/projects/:projectId/issues/", issueHandler.Create)
@@ -596,5 +606,5 @@ func New(cfg Config) *gin.Engine {
 		})
 	}
 
-	return r
+	return r, importerSvc
 }
