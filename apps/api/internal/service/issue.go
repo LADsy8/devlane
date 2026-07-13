@@ -571,6 +571,12 @@ func (s *IssueService) Create(ctx context.Context, workspaceSlug string, project
 	}
 	if stateID != nil {
 		issue.StateID = stateID
+	} else if s.states != nil {
+		// No state chosen: fall back to the project's default state so new work
+		// items land in the configured starting state instead of no state.
+		if def, derr := s.states.GetDefaultByProjectID(ctx, projectID); derr == nil && def != nil {
+			issue.StateID = &def.ID
+		}
 	}
 	if startDate != nil {
 		issue.StartDate = startDate
