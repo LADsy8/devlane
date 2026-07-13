@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { SUPPORTED_LANGUAGES, setLanguage as setUiLanguage, type LanguageCode } from '../i18n';
 import { Card, CardContent, Button, Avatar, Modal } from '../components/ui';
 import { CoverImageModal } from '../components/CoverImageModal';
 import { IntegrationsSection } from '../components/integrations/IntegrationsSection';
@@ -72,6 +74,7 @@ import { formatRelativeTime, getTimezoneOptions } from '../lib/settingsHelpers';
 
 const COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '500+'];
 export function SettingsPage() {
+  const { t, i18n } = useTranslation();
   const { workspaceSlug, projectId: projectIdFromPath } = useParams<{
     workspaceSlug: string;
     projectId?: string;
@@ -441,7 +444,6 @@ export function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const [firstDayOfWeek, setFirstDayOfWeek] = useState('monday');
   const [timezone, setTimezone] = useState('UTC');
-  const [language, setLanguage] = useState('en');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -1391,18 +1393,25 @@ export function SettingsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-(--txt-primary)">
-                      Language
+                      {t('settings.preferences.language.title', 'Language')}
                     </label>
                     <p className="mt-0.5 text-sm text-(--txt-secondary)">
-                      Choose the language used in the user interface.
+                      {t(
+                        'settings.preferences.language.help',
+                        'Choose the language used in the user interface.',
+                      )}
                     </p>
                     <div className="relative mt-2 max-w-xs">
                       <select
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
+                        value={i18n.resolvedLanguage ?? i18n.language}
+                        onChange={(e) => setUiLanguage(e.target.value as LanguageCode)}
                         className="w-full appearance-none rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-3 py-2 pr-8 text-sm text-(--txt-primary) focus:outline-none focus:border-(--border-strong)"
                       >
-                        <option value="en">English</option>
+                        {SUPPORTED_LANGUAGES.map((lng) => (
+                          <option key={lng.code} value={lng.code}>
+                            {lng.label}
+                          </option>
+                        ))}
                       </select>
                       <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-(--txt-icon-tertiary)">
                         <IconChevronDown />

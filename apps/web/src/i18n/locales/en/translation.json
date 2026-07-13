@@ -1,0 +1,11 @@
+{
+  "common.cancel": "Cancel",
+  "common.close": "Close",
+  "common.delete": "Delete",
+  "common.done": "Done",
+  "common.edit": "Edit",
+  "common.loading": "Loading…",
+  "common.save": "Save",
+  "settings.preferences.language.help": "Choose the language used in the user interface.",
+  "settings.preferences.language.title": "Language"
+}
