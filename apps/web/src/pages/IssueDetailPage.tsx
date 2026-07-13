@@ -733,7 +733,7 @@ export function IssueDetailPage() {
                       <li key={ch.id}>
                         <Link
                           to={`${baseUrl}/issues/${ch.id}`}
-                          className="flex items-center gap-2 py-2 hover:bg-(--bg-layer-1-hover)"
+                          className="flex items-center gap-2 rounded-(--radius-sm) py-2 hover:bg-(--bg-layer-1-hover) focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--brand-default)"
                         >
                           <span
                             className="size-2.5 shrink-0 rounded-full border border-(--border-subtle)"
