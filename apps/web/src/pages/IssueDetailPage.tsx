@@ -935,7 +935,9 @@ export function IssueDetailPage() {
                         <span className="truncate text-(--txt-primary)">{s.name}</span>
                         {needsConfirm && (
                           <span className="ml-auto text-[10px] text-(--txt-warning-primary)">
-                            ⚠ {t('workItem.detail.confirmChange', 'confirm')}
+                            {}
+                            <span aria-hidden>⚠</span>{' '}
+                            {t('workItem.detail.confirmChange', 'confirm')}
                           </span>
                         )}
                         {issue.state_id === s.id && !needsConfirm && (

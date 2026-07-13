@@ -108,6 +108,7 @@ export function IssueAttachmentsPanel({
               </a>
               {att.attributes?.size != null && (
                 <span className="shrink-0 text-[10px] text-(--txt-tertiary)">
+                  {}
                   {(att.attributes.size / 1024).toFixed(0)}KB
                 </span>
               )}

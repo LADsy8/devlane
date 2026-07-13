@@ -4,6 +4,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 
 import en from './locales/en/translation.json';
 import az from './locales/az/translation.json';
+import './dynamicKeys'; // registers template-literal keys for the parser
 
 /**
  * localStorage key holding the chosen UI language. Named to match the theme

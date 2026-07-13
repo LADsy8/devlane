@@ -216,17 +216,17 @@ export function InstanceAdminIntegrationGitHubPage() {
             )}
           </li>
           <li>
-            {t('instanceAdmin.integration.github.permissionsLabel', 'Permissions:')}{' '}
-            <span className="font-mono">Contents: Read</span>,{' '}
-            <span className="font-mono">Issues: R/W</span>,{' '}
-            <span className="font-mono">Pull requests: R/W</span>,{' '}
+            {t('instanceAdmin.integration.github.permissionsLabel', 'Permissions:')} {}
+            <span className="font-mono">Contents: Read</span>, {}
+            <span className="font-mono">Issues: R/W</span>, {}
+            <span className="font-mono">Pull requests: R/W</span>, {}
             <span className="font-mono">Metadata: Read</span>.
           </li>
           <li>
-            {t('instanceAdmin.integration.github.eventsLabel', 'Subscribe to events:')}{' '}
+            {t('instanceAdmin.integration.github.eventsLabel', 'Subscribe to events:')} {}
             <span className="font-mono">Pull request</span>, <span className="font-mono">Push</span>
-            , <span className="font-mono">Issue comment</span>,{' '}
-            <span className="font-mono">Installation</span>,{' '}
+            {}, <span className="font-mono">Issue comment</span>, {}
+            <span className="font-mono">Installation</span>, {}
             <span className="font-mono">Installation repositories</span>.
           </li>
           <li>
@@ -277,7 +277,8 @@ export function InstanceAdminIntegrationGitHubPage() {
                 'instanceAdmin.integration.github.appSlugHintPre',
                 "The URL-safe slug from your App's public page,",
               )}{' '}
-              <span className="font-mono">github.com/apps/&lt;slug&gt;</span>.{' '}
+              {}
+              <span className="font-mono">{'github.com/apps/<slug>'}</span>.{' '}
               {t(
                 'instanceAdmin.integration.github.appSlugHintPost',
                 'Used to build the install link.',
@@ -396,12 +397,13 @@ export function InstanceAdminIntegrationGitHubPage() {
               </div>
             </label>
             <p className="text-[11px] text-(--txt-tertiary)">
-              {t('instanceAdmin.integration.github.privateKeyHintPre', 'Paste the entire')}{' '}
+              {t('instanceAdmin.integration.github.privateKeyHintPre', 'Paste the entire')} {}
               <span className="font-mono">.pem</span>{' '}
               {t(
                 'instanceAdmin.integration.github.privateKeyHintMid',
                 'downloaded from your App\'s "Generate a private key" button. Stored encrypted at rest (set',
               )}{' '}
+              {}
               <span className="font-mono">INSTANCE_ENCRYPTION_KEY</span>{' '}
               {t('instanceAdmin.integration.github.privateKeyHintPost', 'on the API).')}
             </p>

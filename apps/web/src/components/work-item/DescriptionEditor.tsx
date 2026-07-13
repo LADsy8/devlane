@@ -141,6 +141,7 @@ export function DescriptionEditor({
           aria-label={t('workItem.editor.bold', 'Bold')}
           disabled={disabled}
         >
+          {}
           <span className="text-xs font-semibold">B</span>
         </button>
         <button
@@ -150,6 +151,7 @@ export function DescriptionEditor({
           aria-label={t('workItem.editor.italic', 'Italic')}
           disabled={disabled}
         >
+          {}
           <span className="text-xs italic">I</span>
         </button>
         <button
@@ -159,6 +161,7 @@ export function DescriptionEditor({
           aria-label={t('workItem.editor.underline', 'Underline')}
           disabled={disabled}
         >
+          {}
           <span className="text-xs underline">U</span>
         </button>
         <button

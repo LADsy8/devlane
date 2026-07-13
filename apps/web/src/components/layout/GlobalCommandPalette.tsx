@@ -733,6 +733,7 @@ export function GlobalCommandPalette({
             <span className="text-(--txt-placeholder)">·</span>
             <span className="inline-flex items-center gap-0.5">
               <Kbd>{modKey}</Kbd>
+              {}
               <Kbd>K</Kbd>
             </span>
           </div>

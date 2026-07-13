@@ -395,21 +395,21 @@ export function AnalyticsWorkItemsPage() {
             type="button"
             className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
           >
-            <IconBriefcase /> {t('analytics.filterWorkItem', 'Work item')}{' '}
+            <IconBriefcase /> {t('analytics.filterWorkItem', 'Work item')} {}
             <span className="opacity-60">∨</span>
           </button>
           <button
             type="button"
             className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
           >
-            <IconCalendar /> {t('analytics.priority', 'Priority')}{' '}
+            <IconCalendar /> {t('analytics.priority', 'Priority')} {}
             <span className="opacity-60">∨</span>
           </button>
           <button
             type="button"
             className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
           >
-            <IconSettings /> {t('analytics.addProperty', 'Add Property')}{' '}
+            <IconSettings /> {t('analytics.addProperty', 'Add Property')} {}
             <span className="opacity-60">∨</span>
           </button>
         </div>

@@ -176,6 +176,7 @@ export function UpdateModuleModal({
               onClick={() => setDateModalOpen(true)}
               className="flex items-center gap-2 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
             >
+              {}
               <span className="text-(--txt-icon-tertiary)" aria-hidden>
                 📅
               </span>
@@ -188,6 +189,7 @@ export function UpdateModuleModal({
                 onClick={() => setStatusDropdownOpen((v) => !v)}
                 className="flex items-center gap-2 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
               >
+                {}
                 <span className="text-(--txt-icon-tertiary)" aria-hidden>
                   ⏺
                 </span>
@@ -246,6 +248,7 @@ export function UpdateModuleModal({
               {leadDropdownOpen && (
                 <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border border-(--border-subtle) bg-(--bg-surface-1) p-1.5 shadow-(--shadow-raised)">
                   <div className="mb-1.5 flex items-center gap-2 rounded border border-(--border-subtle) bg-(--bg-layer-1) px-2 py-1.5">
+                    {}
                     <span className="text-(--txt-icon-tertiary)" aria-hidden>
                       🔎
                     </span>
@@ -326,6 +329,7 @@ export function UpdateModuleModal({
               {membersDropdownOpen && (
                 <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border border-(--border-subtle) bg-(--bg-surface-1) p-1.5 shadow-(--shadow-raised)">
                   <div className="mb-1.5 flex items-center gap-2 rounded border border-(--border-subtle) bg-(--bg-layer-1) px-2 py-1.5">
+                    {}
                     <span className="text-(--txt-icon-tertiary)" aria-hidden>
                       🔎
                     </span>

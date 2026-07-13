@@ -184,7 +184,9 @@ export function InstanceAdminEmailPage() {
             onChange={(e) => setEmail((p) => ({ ...p, security: e.target.value }))}
             className="mt-0.5 block w-full rounded border border-(--border-subtle) bg-(--bg-surface-1) px-2.5 py-1.5 text-xs text-(--txt-primary) focus:outline-none"
           >
+            {}
             <option value="TLS">TLS</option>
+            {}
             <option value="SSL">SSL</option>
             <option value="None">{t('instanceAdmin.email.securityNone', 'None')}</option>
           </select>

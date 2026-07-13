@@ -2826,7 +2826,8 @@ export function SettingsPage() {
                                     onClick={() => moveStateWithinGroup(st, -1)}
                                     className="flex size-7 items-center justify-center rounded-(--radius-md) text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary) disabled:opacity-30 disabled:hover:bg-transparent"
                                   >
-                                    ↑
+                                    {}
+                                    <span aria-hidden>↑</span>
                                   </button>
                                   <button
                                     type="button"
@@ -2841,7 +2842,8 @@ export function SettingsPage() {
                                     onClick={() => moveStateWithinGroup(st, 1)}
                                     className="flex size-7 items-center justify-center rounded-(--radius-md) text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary) disabled:opacity-30 disabled:hover:bg-transparent"
                                   >
-                                    ↓
+                                    {}
+                                    <span aria-hidden>↓</span>
                                   </button>
                                   {!st.default && (
                                     <Button
@@ -3603,7 +3605,9 @@ export function SettingsPage() {
                       onChange={(e) => setExportFormat(e.target.value)}
                       className="w-full appearance-none rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-3 py-2 pr-8 text-sm text-(--txt-primary) focus:outline-none focus:border-(--border-strong)"
                     >
+                      {}
                       <option value="csv">CSV</option>
+                      {}
                       <option value="json">JSON</option>
                       <option value="xlsx">{t('settings.export.formatExcel', 'Excel')}</option>
                     </select>
