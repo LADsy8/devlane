@@ -844,7 +844,9 @@ export function IssueListPage() {
           {layout === 'calendar' && (
             <IssueLayoutCalendar {...layoutProps} onUpdateIssue={handleInlineUpdate} />
           )}
-          {layout === 'gantt' && <IssueLayoutGantt {...layoutProps} />}
+          {layout === 'gantt' && (
+            <IssueLayoutGantt {...layoutProps} onUpdateIssue={handleInlineUpdate} />
+          )}
           {layout === 'list' && (
             <div className="border-t border-(--border-subtle) px-4 py-2.5">
               <button
