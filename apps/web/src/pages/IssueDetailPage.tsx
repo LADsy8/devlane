@@ -717,21 +717,43 @@ export function IssueDetailPage() {
 
           {children.length > 0 && (
             <Card>
-              <CardHeader className="text-sm font-medium text-(--txt-secondary)">
-                Sub-work items
+              <CardHeader className="flex items-center gap-2 text-sm font-medium text-(--txt-secondary)">
+                <span>Sub-work items</span>
+                <span className="rounded-full bg-(--bg-layer-2) px-1.5 text-xs text-(--txt-tertiary)">
+                  {children.length}
+                </span>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-2">
-                  {children.map((ch) => (
-                    <li key={ch.id}>
-                      <Link
-                        to={`${baseUrl}/issues/${ch.id}`}
-                        className="text-sm text-(--txt-accent-primary) hover:underline"
-                      >
-                        {ch.name}
-                      </Link>
-                    </li>
-                  ))}
+                <ul className="divide-y divide-(--border-subtle)">
+                  {children.map((ch) => {
+                    const childState = ch.state_id
+                      ? (states.find((s) => s.id === ch.state_id) ?? null)
+                      : null;
+                    return (
+                      <li key={ch.id}>
+                        <Link
+                          to={`${baseUrl}/issues/${ch.id}`}
+                          className="flex items-center gap-2 py-2 hover:bg-(--bg-layer-1-hover)"
+                        >
+                          <span
+                            className="size-2.5 shrink-0 rounded-full border border-(--border-subtle)"
+                            style={{ backgroundColor: childState?.color ?? 'transparent' }}
+                            title={childState?.name ?? 'No state'}
+                          />
+                          <span className="shrink-0 text-[11px] font-medium text-(--txt-tertiary)">
+                            {project.identifier ?? project.id.slice(0, 8)}-
+                            {ch.sequence_id ?? ch.id.slice(-4)}
+                          </span>
+                          <span className="truncate text-sm text-(--txt-primary)">{ch.name}</span>
+                          {ch.priority && ch.priority !== 'none' && (
+                            <span className="ml-auto shrink-0">
+                              <PriorityIcon priority={ch.priority as Priority} />
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               </CardContent>
             </Card>
