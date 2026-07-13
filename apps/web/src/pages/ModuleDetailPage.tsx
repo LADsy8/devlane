@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Avatar, Badge, Button } from '../components/ui';
 import { CreateWorkItemModal } from '../components/CreateWorkItemModal';
@@ -185,6 +186,7 @@ export function ModuleDetailPage() {
     moduleId: string;
   }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useTranslation();
   const [workspace, setWorkspace] = useState<WorkspaceApiResponse | null>(null);
   const [project, setProject] = useState<ProjectApiResponse | null>(null);
   const [module, setModule] = useState<ModuleApiResponse | null>(null);
@@ -208,7 +210,9 @@ export function ModuleDetailPage() {
     cloneDefaultProjectIssuesDisplay(),
   );
 
-  useDocumentTitle(loading ? 'Module' : (module?.name ?? 'Module'));
+  useDocumentTitle(
+    loading ? t('module.title', 'Module') : (module?.name ?? t('module.title', 'Module')),
+  );
 
   const createParam = searchParams.get('create') === '1';
 
@@ -377,7 +381,9 @@ export function ModuleDetailPage() {
       refetchIssues();
       handleCloseCreate();
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create work item');
+      setCreateError(
+        err instanceof Error ? err.message : t('module.createError', 'Failed to create work item'),
+      );
     }
   };
 
@@ -392,7 +398,7 @@ export function ModuleDetailPage() {
     const m = members.find((x) => x.member_id === userId);
     const display = m?.member_display_name?.trim();
     const emailUser = m?.member_email?.split('@')[0]?.trim();
-    const name = display || emailUser || 'Member';
+    const name = display || emailUser || t('common.member', 'Member');
     const avatarUrl = m?.member_avatar ?? null;
     return { id: userId, name, avatarUrl };
   };
@@ -452,20 +458,20 @@ export function ModuleDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8 text-sm text-(--txt-tertiary)">
-        Loading…
+        {t('common.loading', 'Loading…')}
       </div>
     );
   }
   if (!workspace || !project || !module) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-8">
-        <p className="text-(--txt-secondary)">Module not found.</p>
+        <p className="text-(--txt-secondary)">{t('module.notFound', 'Module not found.')}</p>
         {workspace && projectId && (
           <Link
             to={`/${workspace.slug}/projects/${projectId}/modules`}
             className="text-sm font-medium text-(--brand-default) hover:underline"
           >
-            Back to Modules
+            {t('module.backToModules', 'Back to Modules')}
           </Link>
         )}
       </div>
@@ -562,7 +568,7 @@ export function ModuleDetailPage() {
             {hasCol('due_date') ? (
               <span
                 className="flex size-6 items-center justify-center"
-                title={dueStr ?? 'Due date'}
+                title={dueStr ?? t('module.dueDate', 'Due date')}
               >
                 <IconCalendar />
               </span>
@@ -570,7 +576,7 @@ export function ModuleDetailPage() {
             {hasCol('assignee') ? (
               <span
                 className="flex size-6 items-center justify-center"
-                title={assignee?.name ?? 'Unassigned'}
+                title={assignee?.name ?? t('module.unassigned', 'Unassigned')}
               >
                 {assignee ? (
                   <Avatar
@@ -587,7 +593,7 @@ export function ModuleDetailPage() {
             {hasCol('labels') ? (
               <span
                 className="flex size-6 items-center justify-center"
-                title={labelNames.length ? labelNames.join(', ') : 'Labels'}
+                title={labelNames.length ? labelNames.join(', ') : t('module.labels', 'Labels')}
               >
                 {labelNames.length > 0 ? (
                   <IconTag />
@@ -601,7 +607,7 @@ export function ModuleDetailPage() {
             {hasCol('sub_work_count') ? (
               <span
                 className="min-w-6 text-center text-[11px] text-(--txt-secondary)"
-                title="Sub-work items"
+                title={t('module.subWorkItems', 'Sub-work items')}
               >
                 {subN}
               </span>
@@ -609,7 +615,7 @@ export function ModuleDetailPage() {
             {hasCol('attachment_count') ? (
               <span
                 className="min-w-6 text-center text-[11px] text-(--txt-secondary)"
-                title="Attachments"
+                title={t('module.attachments', 'Attachments')}
               >
                 —
               </span>
@@ -617,7 +623,7 @@ export function ModuleDetailPage() {
             {hasCol('estimate') ? (
               <span
                 className="min-w-6 text-center text-[11px] text-(--txt-secondary)"
-                title="Estimate"
+                title={t('module.estimate', 'Estimate')}
               >
                 {estimateValue(issue)}
               </span>
@@ -625,7 +631,7 @@ export function ModuleDetailPage() {
             {hasCol('module') ? (
               <span
                 className="max-w-[5rem] truncate text-[11px] text-(--txt-secondary)"
-                title="Module"
+                title={t('module.moduleColumn', 'Module')}
               >
                 {moduleNameForIssue(issue)}
               </span>
@@ -633,7 +639,7 @@ export function ModuleDetailPage() {
             {hasCol('cycle') ? (
               <span
                 className="max-w-[5rem] truncate text-[11px] text-(--txt-secondary)"
-                title="Cycle"
+                title={t('module.cycle', 'Cycle')}
               >
                 {cycleName(issue)}
               </span>
@@ -644,19 +650,22 @@ export function ModuleDetailPage() {
                 target="_blank"
                 rel="noreferrer"
                 className="flex size-6 items-center justify-center rounded text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-                title="Open in new tab"
+                title={t('common.openInNewTab', 'Open in new tab')}
                 onClick={(e) => e.stopPropagation()}
               >
                 <IconLinkOut />
               </a>
             ) : null}
-            <span className="flex size-6 items-center justify-center" title="Visibility">
+            <span
+              className="flex size-6 items-center justify-center"
+              title={t('module.visibility', 'Visibility')}
+            >
               <IconEye />
             </span>
             <button
               type="button"
               className="flex size-6 items-center justify-center rounded hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-              aria-label="More options"
+              aria-label={t('common.moreOptions', 'More options')}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -683,10 +692,13 @@ export function ModuleDetailPage() {
         <section className="space-y-4">
           <div>
             <h2 className="text-[30px] leading-tight font-semibold text-(--txt-primary)">
-              No work items in the module
+              {t('module.emptyTitle', 'No work items in the module')}
             </h2>
             <p className="mt-1 text-sm text-(--txt-secondary)">
-              Create or add work items which you want to accomplish as part of this module
+              {t(
+                'module.emptyDescription',
+                'Create or add work items which you want to accomplish as part of this module',
+              )}
             </p>
           </div>
 
@@ -699,7 +711,7 @@ export function ModuleDetailPage() {
 
                 <div className="ml-24 rounded-md border border-(--border-subtle) bg-(--bg-surface-1)">
                   <div className="flex items-center gap-2 border-b border-(--border-subtle) px-3 py-2 text-xs text-(--txt-tertiary)">
-                    <span className="font-medium">Backlog</span>
+                    <span className="font-medium">{t('common.backlog', 'Backlog')}</span>
                     <span>7</span>
                   </div>
                   <div className="divide-y divide-(--border-subtle)">
@@ -728,7 +740,7 @@ export function ModuleDetailPage() {
                 onClick={() => setSearchParams({ create: '1' })}
               >
                 <IconPlus />
-                Create new work items
+                {t('module.createNewWorkItems', 'Create new work items')}
               </Button>
               <Button
                 size="sm"
@@ -736,7 +748,7 @@ export function ModuleDetailPage() {
                 className="gap-1.5"
                 onClick={() => setAddExistingOpen(true)}
               >
-                Add an existing work item
+                {t('module.addExistingWorkItem', 'Add an existing work item')}
               </Button>
             </div>
           </div>
@@ -753,11 +765,11 @@ export function ModuleDetailPage() {
               >
                 <span className="size-2 rounded-full border border-current border-dashed" />
               </span>
-              All work items {filteredCount}
+              {t('module.allWorkItems', 'All work items')} {filteredCount}
               <button
                 type="button"
                 className="flex size-7 items-center justify-center rounded-md text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-                aria-label="Add work item"
+                aria-label={t('module.addWorkItem', 'Add work item')}
                 onClick={() => setSearchParams({ create: '1' })}
               >
                 <IconPlus />
@@ -767,7 +779,9 @@ export function ModuleDetailPage() {
 
           {filteredIssues.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-4 py-12">
-              <p className="text-sm text-(--txt-tertiary)">No work items match your filters.</p>
+              <p className="text-sm text-(--txt-tertiary)">
+                {t('module.noWorkItemsMatchFilters', 'No work items match your filters.')}
+              </p>
             </div>
           ) : groupedIssues.isFlat ? (
             <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1)">
@@ -783,14 +797,14 @@ export function ModuleDetailPage() {
                   onClick={() => setSearchParams({ create: '1' })}
                 >
                   <IconPlus />
-                  New work item
+                  {t('module.newWorkItem', 'New work item')}
                 </button>
                 <button
                   type="button"
                   className="mt-2 text-sm font-medium text-(--txt-tertiary) underline decoration-dotted hover:text-(--txt-secondary)"
                   onClick={() => setAddExistingOpen(true)}
                 >
-                  Add an existing work item
+                  {t('module.addExistingWorkItem', 'Add an existing work item')}
                 </button>
               </div>
             </div>
@@ -821,7 +835,7 @@ export function ModuleDetailPage() {
                   onClick={() => setSearchParams({ create: '1' })}
                 >
                   <IconPlus />
-                  New work item
+                  {t('module.newWorkItem', 'New work item')}
                 </button>
               </div>
             </div>

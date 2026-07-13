@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Badge, Avatar, Button } from '../components/ui';
 import { CreateWorkItemModal } from '../components/CreateWorkItemModal';
@@ -155,6 +156,7 @@ function pushUniq(arr: string[], id: string) {
 }
 
 export function ViewDetailPage() {
+  const { t } = useTranslation();
   const { settings, setSettings } = useProjectSavedViewDisplay();
   const { user } = useAuth();
   const { filters: workspaceViewFilters, setFilters: setWorkspaceViewFilters } =
@@ -186,7 +188,11 @@ export function ViewDetailPage() {
   // re-setting `view` after a save doesn't clobber the current in-memory settings.
   const seededViewId = useRef<string | null>(null);
 
-  useDocumentTitle(loading ? 'View' : (view?.name ?? 'View'));
+  useDocumentTitle(
+    loading
+      ? t('views.documentTitleFallback', 'View')
+      : (view?.name ?? t('views.documentTitleFallback', 'View')),
+  );
 
   const refetchIssues = () => {
     if (!workspaceSlug || !projectId) return;
@@ -200,7 +206,7 @@ export function ViewDetailPage() {
     if (!workspaceSlug || !viewId) {
       queueMicrotask(() => {
         setLoading(false);
-        setError('View not found.');
+        setError(t('views.viewNotFound', 'View not found.'));
       });
       return;
     }
@@ -217,7 +223,7 @@ export function ViewDetailPage() {
       .catch(() => {
         if (!cancelled) {
           setView(null);
-          setError('Unable to load this view.');
+          setError(t('views.unableToLoadView', 'Unable to load this view.'));
         }
       })
       .finally(() => {
@@ -226,7 +232,7 @@ export function ViewDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [workspaceSlug, viewId]);
+  }, [workspaceSlug, viewId, t]);
 
   // Keep the shared “Filters” dropdown state in sync with this saved view.
   // We treat the saved view's `filters` JSON as the same key/value shape that
@@ -478,7 +484,7 @@ export function ViewDetailPage() {
     const groupBy = settings.groupBy;
 
     const getStateName = (stateKey: string) => {
-      if (stateKey === NONE_STATE_KEY) return 'No state';
+      if (stateKey === NONE_STATE_KEY) return t('views.noState', 'No state');
       return states.find((s) => s.id === stateKey)?.name ?? stateKey;
     };
 
@@ -488,7 +494,7 @@ export function ViewDetailPage() {
       return {
         order: [ALL_GROUP_KEY],
         groups: m,
-        title: () => 'All work items',
+        title: () => t('views.allWorkItems', 'All work items'),
       };
     }
 
@@ -538,7 +544,8 @@ export function ViewDetailPage() {
       return {
         order: ordered,
         groups: map,
-        title: (k) => (k === 'none' ? 'None' : k.charAt(0).toUpperCase() + k.slice(1)),
+        title: (k) =>
+          k === 'none' ? t('common.none', 'None') : k.charAt(0).toUpperCase() + k.slice(1),
       };
     }
 
@@ -564,7 +571,9 @@ export function ViewDetailPage() {
         order: ordered,
         groups: map,
         title: (k) =>
-          k === NONE_CYCLE_KEY ? 'No cycle' : (cycles.find((c) => c.id === k)?.name ?? k),
+          k === NONE_CYCLE_KEY
+            ? t('views.noCycle', 'No cycle')
+            : (cycles.find((c) => c.id === k)?.name ?? k),
       };
     }
 
@@ -590,7 +599,9 @@ export function ViewDetailPage() {
         order: ordered,
         groups: map,
         title: (k) =>
-          k === NONE_MODULE_KEY ? 'No module' : (modules.find((m) => m.id === k)?.name ?? k),
+          k === NONE_MODULE_KEY
+            ? t('views.noModule', 'No module')
+            : (modules.find((m) => m.id === k)?.name ?? k),
       };
     }
 
@@ -624,7 +635,9 @@ export function ViewDetailPage() {
         order: ordered,
         groups: map,
         title: (k) =>
-          k === NONE_LABEL_KEY ? 'No labels' : (labels.find((l) => l.id === k)?.name ?? k),
+          k === NONE_LABEL_KEY
+            ? t('views.noLabelsGroup', 'No labels')
+            : (labels.find((l) => l.id === k)?.name ?? k),
       };
     }
 
@@ -639,7 +652,11 @@ export function ViewDetailPage() {
       }
       const memberName = (uid: string) => {
         const m = members.find((x) => x.member_id === uid);
-        return m?.member_display_name?.trim() || m?.member_email?.split('@')[0]?.trim() || 'Member';
+        return (
+          m?.member_display_name?.trim() ||
+          m?.member_email?.split('@')[0]?.trim() ||
+          t('common.member', 'Member')
+        );
       };
       const ordered: string[] = [];
       const ids = [...map.keys()].filter((k) => k !== NONE_ASSIGNEE_KEY);
@@ -653,7 +670,8 @@ export function ViewDetailPage() {
       return {
         order: ordered,
         groups: map,
-        title: (k) => (k === NONE_ASSIGNEE_KEY ? 'Unassigned' : memberName(k)),
+        title: (k) =>
+          k === NONE_ASSIGNEE_KEY ? t('views.unassigned', 'Unassigned') : memberName(k),
       };
     }
 
@@ -668,7 +686,11 @@ export function ViewDetailPage() {
       }
       const memberName = (uid: string) => {
         const m = members.find((x) => x.member_id === uid);
-        return m?.member_display_name?.trim() || m?.member_email?.split('@')[0]?.trim() || 'Member';
+        return (
+          m?.member_display_name?.trim() ||
+          m?.member_email?.split('@')[0]?.trim() ||
+          t('common.member', 'Member')
+        );
       };
       const ordered: string[] = [];
       const ids = [...map.keys()].filter((k) => k !== NONE_CREATOR_KEY);
@@ -682,7 +704,7 @@ export function ViewDetailPage() {
       return {
         order: ordered,
         groups: map,
-        title: (k) => (k === NONE_CREATOR_KEY ? 'Unknown' : memberName(k)),
+        title: (k) => (k === NONE_CREATOR_KEY ? t('views.unknown', 'Unknown') : memberName(k)),
       };
     }
 
@@ -691,7 +713,7 @@ export function ViewDetailPage() {
     return {
       order: [ALL_GROUP_KEY],
       groups: m,
-      title: () => 'All work items',
+      title: () => t('views.allWorkItems', 'All work items'),
     };
   }, [
     baseForGrouping,
@@ -704,6 +726,7 @@ export function ViewDetailPage() {
     settings.orderDirection,
     sortedStates,
     states,
+    t,
   ]);
 
   const getIssueStateName = (stateId: string | null | undefined) =>
@@ -719,7 +742,7 @@ export function ViewDetailPage() {
     const m = members.find((x) => x.member_id === userId);
     const display = m?.member_display_name?.trim();
     const emailUser = m?.member_email?.split('@')[0]?.trim();
-    const name = display || emailUser || 'Member';
+    const name = display || emailUser || t('common.member', 'Member');
     const avatarUrl = m?.member_avatar ?? null;
     return { id: userId, name, avatarUrl };
   };
@@ -774,7 +797,11 @@ export function ViewDetailPage() {
       refetchIssues();
       handleCloseCreate();
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create work item');
+      setCreateError(
+        err instanceof Error
+          ? err.message
+          : t('views.failedToCreate', 'Failed to create work item'),
+      );
     }
   };
 
@@ -804,7 +831,7 @@ export function ViewDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8 text-sm text-(--txt-tertiary)">
-        Loading view...
+        {t('views.loadingViewDetail', 'Loading view...')}
       </div>
     );
   }
@@ -812,13 +839,15 @@ export function ViewDetailPage() {
   if (!view) {
     return (
       <div className="px-6 py-8">
-        <p className="text-sm text-(--txt-secondary)">{error ?? 'View not found.'}</p>
+        <p className="text-sm text-(--txt-secondary)">
+          {error ?? t('views.viewNotFound', 'View not found.')}
+        </p>
         {workspaceSlug && projectId && (
           <Link
             to={`/${workspaceSlug}/projects/${projectId}/views`}
             className="mt-3 inline-block text-sm text-(--brand-default) hover:underline"
           >
-            Back to views
+            {t('views.backToViews', 'Back to views')}
           </Link>
         )}
       </div>
@@ -828,7 +857,9 @@ export function ViewDetailPage() {
   if (!workspace || !project) {
     return (
       <div className="px-6 py-8 text-sm text-(--txt-secondary)">
-        {issuesLoading ? 'Loading project...' : 'Project not found.'}
+        {issuesLoading
+          ? t('views.loadingProject', 'Loading project...')
+          : t('views.projectNotFound', 'Project not found.')}
       </div>
     );
   }
@@ -880,12 +911,14 @@ export function ViewDetailPage() {
         {user && view.owned_by_id === user.id ? (
           <div className="flex shrink-0 items-center gap-2">
             {saveState === 'error' ? (
-              <span className="text-xs text-(--txt-danger-primary)">Couldn’t save. Try again.</span>
+              <span className="text-xs text-(--txt-danger-primary)">
+                {t('views.saveError', 'Couldn’t save. Try again.')}
+              </span>
             ) : saveState === 'saved' ? (
-              <span className="text-xs text-(--txt-tertiary)">Saved</span>
+              <span className="text-xs text-(--txt-tertiary)">{t('views.saved', 'Saved')}</span>
             ) : null}
             <Button size="sm" variant="secondary" onClick={handleSaveView} disabled={saving}>
-              {saving ? 'Saving…' : 'Save changes'}
+              {saving ? t('views.saving', 'Saving…') : t('views.saveChanges', 'Save changes')}
             </Button>
           </div>
         ) : null}
@@ -910,7 +943,7 @@ export function ViewDetailPage() {
                   <button
                     type="button"
                     className="flex size-7 items-center justify-center rounded-md text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-                    aria-label="Add work item"
+                    aria-label={t('views.addWorkItem', 'Add work item')}
                     onClick={openCreate}
                   >
                     <IconPlus />
@@ -982,7 +1015,7 @@ export function ViewDetailPage() {
                               {hasCol('due_date') ? (
                                 <span
                                   className="flex size-6 items-center justify-center"
-                                  title={dueStr ?? 'Due date'}
+                                  title={dueStr ?? t('views.dueDate', 'Due date')}
                                 >
                                   <IconCalendar />
                                 </span>
@@ -990,7 +1023,7 @@ export function ViewDetailPage() {
                               {hasCol('assignee') ? (
                                 <span
                                   className="flex size-6 items-center justify-center"
-                                  title={assignee?.name ?? 'Unassigned'}
+                                  title={assignee?.name ?? t('views.unassigned', 'Unassigned')}
                                 >
                                   {assignee ? (
                                     <Avatar
@@ -1007,7 +1040,11 @@ export function ViewDetailPage() {
                               {hasCol('labels') ? (
                                 <span
                                   className="flex size-6 items-center justify-center"
-                                  title={labelNames.length ? labelNames.join(', ') : 'Labels'}
+                                  title={
+                                    labelNames.length
+                                      ? labelNames.join(', ')
+                                      : t('views.labels', 'Labels')
+                                  }
                                 >
                                   {labelNames.length > 0 ? (
                                     <IconTag />
@@ -1021,7 +1058,7 @@ export function ViewDetailPage() {
                               {hasCol('sub_work_count') ? (
                                 <span
                                   className="min-w-6 text-center text-[11px] text-(--txt-secondary)"
-                                  title="Sub-work items"
+                                  title={t('views.subWorkItems', 'Sub-work items')}
                                 >
                                   {subN}
                                 </span>
@@ -1029,7 +1066,7 @@ export function ViewDetailPage() {
                               {hasCol('attachment_count') ? (
                                 <span
                                   className="min-w-6 text-center text-[11px] text-(--txt-secondary)"
-                                  title="Attachments"
+                                  title={t('views.attachments', 'Attachments')}
                                 >
                                   —
                                 </span>
@@ -1037,7 +1074,7 @@ export function ViewDetailPage() {
                               {hasCol('estimate') ? (
                                 <span
                                   className="min-w-6 text-center text-[11px] text-(--txt-secondary)"
-                                  title="Estimate"
+                                  title={t('views.estimate', 'Estimate')}
                                 >
                                   {estimateValue(issue)}
                                 </span>
@@ -1045,7 +1082,7 @@ export function ViewDetailPage() {
                               {hasCol('module') ? (
                                 <span
                                   className="max-w-[5rem] truncate text-[11px] text-(--txt-secondary)"
-                                  title="Module"
+                                  title={t('views.module', 'Module')}
                                 >
                                   {moduleName(issue)}
                                 </span>
@@ -1053,7 +1090,7 @@ export function ViewDetailPage() {
                               {hasCol('cycle') ? (
                                 <span
                                   className="max-w-[5rem] truncate text-[11px] text-(--txt-secondary)"
-                                  title="Cycle"
+                                  title={t('views.cycle', 'Cycle')}
                                 >
                                   {cycleName(issue)}
                                 </span>
@@ -1064,7 +1101,7 @@ export function ViewDetailPage() {
                                   target="_blank"
                                   rel="noreferrer"
                                   className="flex size-6 items-center justify-center rounded text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-                                  title="Open in new tab"
+                                  title={t('views.openInNewTab', 'Open in new tab')}
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <IconLinkOut />
@@ -1073,7 +1110,7 @@ export function ViewDetailPage() {
                               <button
                                 type="button"
                                 className="flex size-6 items-center justify-center rounded hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-                                aria-label="More options"
+                                aria-label={t('views.moreOptions', 'More options')}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -1094,7 +1131,7 @@ export function ViewDetailPage() {
                       onClick={openCreate}
                     >
                       <IconPlus />
-                      New work item
+                      {t('views.newWorkItem', 'New work item')}
                     </button>
                   </div>
                 </div>
@@ -1105,10 +1142,12 @@ export function ViewDetailPage() {
           {!issuesLoading && filteredIssues.length === 0 && (
             <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1)">
               <div className="flex flex-col items-center justify-center gap-4 px-4 py-12">
-                <p className="text-sm text-(--txt-tertiary)">No work items match this view.</p>
+                <p className="text-sm text-(--txt-tertiary)">
+                  {t('views.noWorkItemsMatch', 'No work items match this view.')}
+                </p>
                 <Button size="sm" className="gap-1.5" onClick={openCreate}>
                   <IconPlus />
-                  New work item
+                  {t('views.newWorkItem', 'New work item')}
                 </Button>
               </div>
             </div>

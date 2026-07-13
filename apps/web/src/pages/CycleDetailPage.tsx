@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { CalendarDays, ChartGantt, Columns3, List, Table2 } from 'lucide-react';
 import { Badge, Button, Modal } from '../components/ui';
@@ -78,10 +79,19 @@ function CycleLayoutSwitcher({
   layout: IssueLayout;
   onChange: (layout: IssueLayout) => void;
 }) {
+  const { t } = useTranslation();
+  const layoutLabels: Record<IssueLayout, string> = {
+    list: t('cycle.layoutList', 'List'),
+    board: t('cycle.layoutBoard', 'Board'),
+    calendar: t('cycle.layoutCalendar', 'Calendar'),
+    spreadsheet: t('cycle.layoutSpreadsheet', 'Spreadsheet'),
+    gantt: t('cycle.layoutTimeline', 'Timeline'),
+  };
   return (
     <div className="flex h-8 overflow-hidden rounded-lg border border-(--border-subtle) bg-(--bg-layer-1) p-0.5">
-      {LAYOUT_OPTIONS.map(({ key, label, Icon }) => {
+      {LAYOUT_OPTIONS.map(({ key, Icon }) => {
         const active = layout === key;
+        const label = layoutLabels[key];
         return (
           <button
             key={key}
@@ -111,6 +121,7 @@ export function CycleDetailPage() {
     cycleId: string;
   }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useTranslation();
 
   const [loading, setLoading] = useState(() => Boolean(workspaceSlug && projectId && cycleId));
   const [workspace, setWorkspace] = useState<WorkspaceApiResponse | null>(null);
@@ -130,7 +141,9 @@ export function CycleDetailPage() {
   const [transferTargetId, setTransferTargetId] = useState('');
   const [now] = useState(() => Date.now());
 
-  useDocumentTitle(loading ? 'Cycle' : (cycle?.name ?? 'Cycle'));
+  useDocumentTitle(
+    loading ? t('cycle.title', 'Cycle') : (cycle?.name ?? t('cycle.title', 'Cycle')),
+  );
 
   useEffect(() => {
     if (!workspaceSlug || !projectId || !cycleId) return;
@@ -304,15 +317,24 @@ export function CycleDetailPage() {
       setCompleteModalOpen(false);
       setTransferTargetId('');
     } catch {
-      setCompleteError('Could not complete the cycle. Please try again.');
+      setCompleteError(t('cycle.completeError', 'Could not complete the cycle. Please try again.'));
     } finally {
       setCompleting(false);
     }
   };
 
-  if (loading) return <div className="p-6 text-sm text-(--txt-tertiary)">Loading cycle…</div>;
+  if (loading)
+    return (
+      <div className="p-6 text-sm text-(--txt-tertiary)">
+        {t('cycle.loading', 'Loading cycle…')}
+      </div>
+    );
   if (!workspace || !project || !cycle)
-    return <div className="p-6 text-sm text-(--txt-secondary)">Cycle not found.</div>;
+    return (
+      <div className="p-6 text-sm text-(--txt-secondary)">
+        {t('cycle.notFound', 'Cycle not found.')}
+      </div>
+    );
 
   const projectBase = `/${workspace.slug}/projects/${project.id}`;
   const layout = parseIssueLayout(searchParams.get('layout'));
@@ -359,16 +381,17 @@ export function CycleDetailPage() {
             to={`${projectBase}/cycles`}
             className="inline-flex items-center text-sm text-(--txt-secondary) hover:text-(--txt-primary)"
           >
-            ← Back to cycles
+            ← {t('cycle.backToCycles', 'Back to cycles')}
           </Link>
           <h1 className="text-xl font-semibold text-(--txt-primary)">{cycle.name}</h1>
           <p className="text-sm text-(--txt-secondary)">
-            {formatDate(cycle.start_date)} — {formatDate(cycle.end_date)} · {total} work items
+            {formatDate(cycle.start_date)} — {formatDate(cycle.end_date)} ·{' '}
+            {t('cycle.workItemsCount', '{{count}} work items', { count: total })}
           </p>
         </div>
         <div className="shrink-0">
           {cycle.status === 'completed' ? (
-            <Badge variant="neutral">Completed</Badge>
+            <Badge variant="neutral">{t('cycle.completed', 'Completed')}</Badge>
           ) : (
             <Button
               size="sm"
@@ -379,7 +402,7 @@ export function CycleDetailPage() {
                 setCompleteModalOpen(true);
               }}
             >
-              Complete cycle
+              {t('cycle.completeCycle', 'Complete cycle')}
             </Button>
           )}
         </div>
@@ -388,23 +411,29 @@ export function CycleDetailPage() {
       <Modal
         open={completeModalOpen}
         onClose={() => !completing && setCompleteModalOpen(false)}
-        title="Complete cycle"
+        title={t('cycle.completeCycle', 'Complete cycle')}
       >
         <div className="space-y-4">
           <p className="text-sm text-(--txt-secondary)">
-            Completing <span className="font-medium text-(--txt-primary)">{cycle.name}</span>{' '}
-            records its progress. Optionally move any incomplete work items into another cycle.
+            <Trans
+              i18nKey="cycle.completeModalBody"
+              defaults="Completing <b>{{name}}</b> records its progress. Optionally move any incomplete work items into another cycle."
+              values={{ name: cycle.name }}
+              components={{ b: <span className="font-medium text-(--txt-primary)" /> }}
+            />
           </p>
           <div>
             <label className="mb-1 block text-sm font-medium text-(--txt-secondary)">
-              Transfer incomplete work items to
+              {t('cycle.transferLabel', 'Transfer incomplete work items to')}
             </label>
             <select
               value={transferTargetId}
               onChange={(e) => setTransferTargetId(e.target.value)}
               className="w-full rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-3 py-2 text-sm text-(--txt-primary) focus:outline-none focus:border-(--border-strong)"
             >
-              <option value="">Don’t transfer (leave them here)</option>
+              <option value="">
+                {t('cycle.transferNone', 'Don’t transfer (leave them here)')}
+              </option>
               {transferTargets.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -419,10 +448,12 @@ export function CycleDetailPage() {
               onClick={() => setCompleteModalOpen(false)}
               disabled={completing}
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button onClick={handleComplete} disabled={completing}>
-              {completing ? 'Completing…' : 'Complete cycle'}
+              {completing
+                ? t('cycle.completing', 'Completing…')
+                : t('cycle.completeCycle', 'Complete cycle')}
             </Button>
           </div>
         </div>
@@ -434,22 +465,46 @@ export function CycleDetailPage() {
           {/* Overall completion */}
           <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-(--txt-secondary)">Overall Progress</p>
+              <p className="text-sm font-medium text-(--txt-secondary)">
+                {t('cycle.overallProgress', 'Overall Progress')}
+              </p>
               <span className="text-2xl font-bold text-(--txt-primary)">{completionPct}%</span>
             </div>
             <ProgressBar value={completed} max={total} color="var(--color-success-600, #16a34a)" />
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-(--txt-tertiary)">
-              <span>✓ Completed: {progress.completed_issues}</span>
-              <span>▷ Started: {progress.started_issues}</span>
-              <span>○ Unstarted: {progress.unstarted_issues}</span>
-              <span>⊘ Cancelled: {progress.cancelled_issues}</span>
-              <span>◻ Backlog: {progress.backlog_issues}</span>
+              <span>
+                {t('cycle.statCompleted', '✓ Completed: {{count}}', {
+                  count: progress.completed_issues,
+                })}
+              </span>
+              <span>
+                {t('cycle.statStarted', '▷ Started: {{count}}', {
+                  count: progress.started_issues,
+                })}
+              </span>
+              <span>
+                {t('cycle.statUnstarted', '○ Unstarted: {{count}}', {
+                  count: progress.unstarted_issues,
+                })}
+              </span>
+              <span>
+                {t('cycle.statCancelled', '⊘ Cancelled: {{count}}', {
+                  count: progress.cancelled_issues,
+                })}
+              </span>
+              <span>
+                {t('cycle.statBacklog', '◻ Backlog: {{count}}', {
+                  count: progress.backlog_issues,
+                })}
+              </span>
             </div>
           </div>
 
           {/* Burndown chart */}
           <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) p-4">
-            <p className="mb-2 text-xs font-medium text-(--txt-secondary)">Burndown</p>
+            <p className="mb-2 text-xs font-medium text-(--txt-secondary)">
+              {t('cycle.burndown', 'Burndown')}
+            </p>
             <CycleBurndownChart
               completionChart={progress.distribution?.completion_chart ?? {}}
               total={progress.total_issues}
@@ -463,14 +518,14 @@ export function CycleDetailPage() {
       <div className="overflow-hidden rounded-md border border-(--border-subtle) bg-(--bg-surface-1)">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--border-subtle) px-4 py-3">
           <h2 className="text-base font-semibold text-(--txt-primary)">
-            Work items {cycleIssues.length}
+            {t('cycle.workItems', 'Work items')} {cycleIssues.length}
           </h2>
           <CycleLayoutSwitcher layout={layout} onChange={setLayout} />
         </div>
 
         {cycleIssues.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-(--txt-tertiary)">
-            No work items in this cycle.
+            {t('cycle.noWorkItems', 'No work items in this cycle.')}
           </div>
         ) : (
           <>

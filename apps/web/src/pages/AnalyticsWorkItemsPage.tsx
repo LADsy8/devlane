@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import {
   LineChart,
@@ -96,6 +97,7 @@ const IconDownload = () => (
   </svg>
 );
 export function AnalyticsWorkItemsPage() {
+  const { t } = useTranslation();
   const { workspaceSlug } = useParams<{ workspaceSlug: string }>();
   const [workspace, setWorkspace] = useState<WorkspaceApiResponse | null>(null);
   const [projects, setProjects] = useState<ProjectApiResponse[]>([]);
@@ -103,7 +105,7 @@ export function AnalyticsWorkItemsPage() {
   const [states, setStates] = useState<StateApiResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useDocumentTitle('Analytics');
+  useDocumentTitle(t('analytics.documentTitle', 'Analytics'));
 
   useEffect(() => {
     if (!workspaceSlug) {
@@ -163,7 +165,7 @@ export function AnalyticsWorkItemsPage() {
   const priorityCounts = issues.reduce<Record<string, number>>((acc, i) => {
     const p =
       !i.priority || i.priority === 'none'
-        ? 'None'
+        ? t('common.none', 'None')
         : i.priority.charAt(0).toUpperCase() + i.priority.slice(1);
     acc[p] = (acc[p] ?? 0) + 1;
     return acc;
@@ -233,12 +235,16 @@ export function AnalyticsWorkItemsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8 text-sm text-(--txt-tertiary)">
-        Loading…
+        {t('common.loading', 'Loading…')}
       </div>
     );
   }
   if (!workspace) {
-    return <div className="text-(--txt-secondary)">Workspace not found.</div>;
+    return (
+      <div className="text-(--txt-secondary)">
+        {t('common.workspaceNotFound', 'Workspace not found.')}
+      </div>
+    );
   }
 
   const baseUrl = `/${workspace.slug}/analytics`;
@@ -251,45 +257,59 @@ export function AnalyticsWorkItemsPage() {
           to={`${baseUrl}/overview`}
           className="border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-(--txt-secondary) no-underline hover:text-(--txt-primary)"
         >
-          Overview
+          {t('analytics.overview', 'Overview')}
         </Link>
         <Link
           to={`${baseUrl}/work-items`}
           className="border-b-2 border-(--brand-default) px-4 py-2.5 text-sm font-medium text-(--txt-primary) no-underline"
         >
-          Work items
+          {t('analytics.workItems', 'Work items')}
         </Link>
       </div>
 
-      <h2 className="text-lg font-semibold text-(--txt-primary)">Work items</h2>
+      <h2 className="text-lg font-semibold text-(--txt-primary)">
+        {t('analytics.workItems', 'Work items')}
+      </h2>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-4 py-3">
-          <p className="text-xs font-medium text-(--txt-tertiary)">Total Work items</p>
+          <p className="text-xs font-medium text-(--txt-tertiary)">
+            {t('analytics.totalWorkItems', 'Total Work items')}
+          </p>
           <p className="mt-1 text-2xl font-semibold text-(--txt-primary)">{issues.length}</p>
         </div>
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-4 py-3">
-          <p className="text-xs font-medium text-(--txt-tertiary)">Started Work items</p>
+          <p className="text-xs font-medium text-(--txt-tertiary)">
+            {t('analytics.startedWorkItems', 'Started Work items')}
+          </p>
           <p className="mt-1 text-2xl font-semibold text-(--txt-primary)">{startedCount}</p>
         </div>
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-4 py-3">
-          <p className="text-xs font-medium text-(--txt-tertiary)">Backlog Work items</p>
+          <p className="text-xs font-medium text-(--txt-tertiary)">
+            {t('analytics.backlogWorkItems', 'Backlog Work items')}
+          </p>
           <p className="mt-1 text-2xl font-semibold text-(--txt-primary)">{backlogCount}</p>
         </div>
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-4 py-3">
-          <p className="text-xs font-medium text-(--txt-tertiary)">Unstarted Work items</p>
+          <p className="text-xs font-medium text-(--txt-tertiary)">
+            {t('analytics.unstartedWorkItems', 'Unstarted Work items')}
+          </p>
           <p className="mt-1 text-2xl font-semibold text-(--txt-primary)">{unstartedCount}</p>
         </div>
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-4 py-3">
-          <p className="text-xs font-medium text-(--txt-tertiary)">Completed Work items</p>
+          <p className="text-xs font-medium text-(--txt-tertiary)">
+            {t('analytics.completedWorkItems', 'Completed Work items')}
+          </p>
           <p className="mt-1 text-2xl font-semibold text-(--txt-primary)">{completedCount}</p>
         </div>
       </div>
 
       {/* Created vs Resolved */}
       <section>
-        <h3 className="mb-4 text-base font-semibold text-(--txt-primary)">Created vs Resolved</h3>
+        <h3 className="mb-4 text-base font-semibold text-(--txt-primary)">
+          {t('analytics.createdVsResolved', 'Created vs Resolved')}
+        </h3>
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) p-6">
           <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -308,7 +328,7 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: 'var(--border-subtle)' }}
                   axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: 'DATE',
+                    value: t('analytics.axisDate', 'DATE'),
                     position: 'insideBottom',
                     offset: -4,
                     fill: 'var(--txt-tertiary)',
@@ -320,7 +340,7 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: 'var(--border-subtle)' }}
                   axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: 'NO. OF WORK ITEMS',
+                    value: t('analytics.axisNoOfWorkItems', 'NO. OF WORK ITEMS'),
                     angle: -90,
                     position: 'insideLeft',
                     fill: 'var(--txt-tertiary)',
@@ -343,7 +363,7 @@ export function AnalyticsWorkItemsPage() {
                 <Line
                   type="monotone"
                   dataKey="resolved"
-                  name="Resolved"
+                  name={t('analytics.resolved', 'Resolved')}
                   stroke="var(--txt-success-primary, #22c55e)"
                   strokeWidth={2}
                   dot={{ fill: 'var(--txt-success-primary, #22c55e)', r: 4 }}
@@ -352,7 +372,7 @@ export function AnalyticsWorkItemsPage() {
                 <Line
                   type="monotone"
                   dataKey="created"
-                  name="Created"
+                  name={t('analytics.created', 'Created')}
                   stroke="var(--brand-default)"
                   strokeWidth={2}
                   dot={{ fill: 'var(--brand-default)', r: 4 }}
@@ -368,26 +388,29 @@ export function AnalyticsWorkItemsPage() {
       <section>
         <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-(--txt-primary)">
           <IconBriefcase />
-          Customized Insights
+          {t('analytics.customizedInsights', 'Customized Insights')}
         </h3>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <button
             type="button"
             className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
           >
-            <IconBriefcase /> Work item <span className="opacity-60">∨</span>
+            <IconBriefcase /> {t('analytics.filterWorkItem', 'Work item')}{' '}
+            <span className="opacity-60">∨</span>
           </button>
           <button
             type="button"
             className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
           >
-            <IconCalendar /> Priority <span className="opacity-60">∨</span>
+            <IconCalendar /> {t('analytics.priority', 'Priority')}{' '}
+            <span className="opacity-60">∨</span>
           </button>
           <button
             type="button"
             className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
           >
-            <IconSettings /> Add Property <span className="opacity-60">∨</span>
+            <IconSettings /> {t('analytics.addProperty', 'Add Property')}{' '}
+            <span className="opacity-60">∨</span>
           </button>
         </div>
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) p-6">
@@ -405,7 +428,7 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: 'var(--border-subtle)' }}
                   axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: 'PRIORITY',
+                    value: t('analytics.axisPriority', 'PRIORITY'),
                     position: 'insideBottom',
                     offset: -4,
                     fill: 'var(--txt-tertiary)',
@@ -417,7 +440,7 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: 'var(--border-subtle)' }}
                   axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: 'NO. OF WORK ITEM',
+                    value: t('analytics.axisNoOfWorkItem', 'NO. OF WORK ITEM'),
                     angle: -90,
                     position: 'insideLeft',
                     fill: 'var(--txt-tertiary)',
@@ -438,8 +461,8 @@ export function AnalyticsWorkItemsPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-(--txt-primary)">
-              {priorityRows.length} Priority
-              {priorityRows.length !== 1 ? 'ies' : ''}
+              {priorityRows.length} {t('analytics.priority', 'Priority')}
+              {priorityRows.length !== 1 ? t('analytics.prioritySuffixPlural', 'ies') : ''}
             </h3>
             <span className="flex size-8 items-center justify-center rounded-md border border-(--border-subtle) bg-(--bg-layer-2) text-(--txt-icon-tertiary)">
               <IconSearch />
@@ -449,15 +472,19 @@ export function AnalyticsWorkItemsPage() {
             type="button"
             className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
           >
-            <IconDownload /> Export as csv
+            <IconDownload /> {t('analytics.exportAsCsv', 'Export as csv')}
           </button>
         </div>
         <div className="overflow-x-auto rounded-md border border-(--border-subtle) bg-(--bg-surface-1)">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-(--border-subtle)">
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">Priority</th>
-                <th className="py-3 font-medium text-(--txt-secondary)">Count</th>
+                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
+                  {t('analytics.priority', 'Priority')}
+                </th>
+                <th className="py-3 font-medium text-(--txt-secondary)">
+                  {t('analytics.count', 'Count')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -477,7 +504,7 @@ export function AnalyticsWorkItemsPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-(--txt-primary)">
-              {projects.length} Projects
+              {t('analytics.projectsCount', '{{count}} Projects', { count: projects.length })}
             </h3>
             <span className="flex size-8 items-center justify-center rounded-md border border-(--border-subtle) bg-(--bg-layer-2) text-(--txt-icon-tertiary)">
               <IconSearch />
@@ -487,19 +514,31 @@ export function AnalyticsWorkItemsPage() {
             type="button"
             className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
           >
-            <IconDownload /> Export as csv
+            <IconDownload /> {t('analytics.exportAsCsv', 'Export as csv')}
           </button>
         </div>
         <div className="overflow-x-auto rounded-md border border-(--border-subtle) bg-(--bg-surface-1)">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-(--border-subtle)">
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">Project</th>
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">Backlog</th>
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">Started</th>
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">Unstarted</th>
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">Completed</th>
-                <th className="py-3 font-medium text-(--txt-secondary)">Cancelled</th>
+                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
+                  {t('analytics.colProject', 'Project')}
+                </th>
+                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
+                  {t('analytics.colBacklog', 'Backlog')}
+                </th>
+                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
+                  {t('analytics.colStarted', 'Started')}
+                </th>
+                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
+                  {t('analytics.colUnstarted', 'Unstarted')}
+                </th>
+                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
+                  {t('analytics.colCompleted', 'Completed')}
+                </th>
+                <th className="py-3 font-medium text-(--txt-secondary)">
+                  {t('analytics.colCancelled', 'Cancelled')}
+                </th>
               </tr>
             </thead>
             <tbody>
