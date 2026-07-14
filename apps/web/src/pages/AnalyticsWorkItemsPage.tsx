@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { workspaceService } from "../services/workspaceService";
 import { projectService } from "../services/projectService";
+import { API_BASE } from "../api/client";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import type { WorkspaceApiResponse, ProjectApiResponse } from "../api/types";
 
@@ -21,7 +22,25 @@ interface AnalyticsResponse {
   by_state: Record<string, number>;
   by_priority: Record<string, number>;
 }
-6
+
+// Safely downloads the CSV via fetch using credentials (cookies) and correct absolute API URL
+async function downloadCsv(url: string, fallbackFilename: string) {
+  const res = await fetch(url, { credentials: 'include' });
+  if (!res.ok) {
+    throw new Error(`Export failed: ${res.status}`);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? fallbackFilename;
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
+}
+
 const IconSearch = () => (
   <svg
     width="14"
@@ -95,6 +114,7 @@ const IconDownload = () => (
     <line x1="12" y1="15" x2="12" y2="3" />
   </svg>
 );
+
 export function AnalyticsWorkItemsPage() {
   const { t } = useTranslation();
   const { workspaceSlug } = useParams<{ workspaceSlug: string }>();
@@ -104,12 +124,15 @@ export function AnalyticsWorkItemsPage() {
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // States to track downloads
+  const [exportingWorkspace, setExportingWorkspace] = useState(false);
+  const [exportingProjectId, setExportingProjectId] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+
   useDocumentTitle("Analytics");
 
   useEffect(() => {
     if (!workspaceSlug) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset loading when no slug (kept for future use)
-      
       setLoading(false);
       return;
     }
@@ -127,10 +150,9 @@ export function AnalyticsWorkItemsPage() {
         })
         .catch((err) => console.error("Erreur projets:", err));
 
-      fetch(`/api/workspaces/${workspaceSlug}/analytics`)
-        
+      // Add the trailing slash back to the URL
+      fetch(`${API_BASE}/api/workspaces/${workspaceSlug}/analytics/`, { credentials: 'include' })
         .then((res) => {
-          console.log("after fetch")
           if (!res.ok) {
             throw new Error(`Code erreur serveur Go : ${res.status}`);
           }
@@ -141,7 +163,6 @@ export function AnalyticsWorkItemsPage() {
         })
         .catch((err) => {
           console.error("Erreur API Analytics Go:", err);
-          // Optionnel : tu peux mettre un état d'erreur spécifique ici si tu veux
         });
     })
     .catch((err) => {
@@ -156,6 +177,42 @@ export function AnalyticsWorkItemsPage() {
     cancelled = true;
   };
 }, [workspaceSlug]);
+
+  const exportWorkspaceCsv = async () => {
+    if (!workspaceSlug || exportingWorkspace) return;
+    setExportError(null);
+    setExportingWorkspace(true);
+    try {
+      const fallback = `workspace-${workspace?.slug ?? workspaceSlug}-analytics-${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`;
+      await downloadCsv(`${API_BASE}/api/workspaces/${workspaceSlug}/analytics/export/`, fallback);
+    } catch (err) {
+      setExportError(t('analytics.exportFailed', 'Export failed. Please try again.'));
+    } finally {
+      setExportingWorkspace(false);
+    }
+  };
+
+  const exportProjectCsv = async (projectId: string) => {
+    if (!workspaceSlug || exportingProjectId) return;
+    setExportError(null);
+    setExportingProjectId(projectId);
+    try {
+      const proj = projects.find((p) => p.id === projectId);
+      const fallback = `project-${proj?.name ?? projectId}-analytics-${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`;
+      await downloadCsv(
+        `${API_BASE}/api/workspaces/${workspaceSlug}/projects/${projectId}/analytics/export`,
+        fallback
+      );
+    } catch (err) {
+      setExportError(t('analytics.exportFailed', 'Export failed. Please try again.'));
+    } finally {
+      setExportingProjectId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -387,6 +444,10 @@ export function AnalyticsWorkItemsPage() {
         </div>
       </section>
 
+      {exportError && (
+        <p className="text-sm text-(--txt-danger-primary) font-medium">{exportError}</p>
+      )}
+
       {/* Priority table */}
       <section>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -395,20 +456,24 @@ export function AnalyticsWorkItemsPage() {
           </div>
           <button
             type="button"
-            onClick={() => { window.location.href = `/api/workspaces/${workspaceSlug}/analytics/export`;}}
-            className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
+            disabled={exportingWorkspace}
+            onClick={exportWorkspaceCsv}
+            className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover) disabled:opacity-60"
           >
-            <IconDownload /> {t('analytics.exportAsCsv', 'Export as csv')}
+            <IconDownload /> 
+            {exportingWorkspace 
+              ? t('analytics.exporting', 'Exporting…') 
+              : t('analytics.exportAsCsv', 'Export as CSV')}
           </button>
         </div>
         <div className="overflow-x-auto rounded-md border border-(--border-subtle) bg-(--bg-surface-1)">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-(--border-subtle)">
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
+                <th className="py-3 px-4 font-medium text-(--txt-secondary)">
                   {t('analytics.priority', 'Priority')}
                 </th>
-                <th className="py-3 font-medium text-(--txt-secondary)">
+                <th className="py-3 px-4 font-medium text-(--txt-secondary)">
                   {t('analytics.count', 'Count')}
                 </th>
               </tr>
@@ -416,8 +481,8 @@ export function AnalyticsWorkItemsPage() {
             <tbody>
               {priorityRows.map(({ priority, count }) => (
                 <tr key={priority} className="border-b border-(--border-subtle) last:border-0">
-                  <td className="py-3 pr-4 text-(--txt-primary)">{priority}</td>
-                  <td className="py-3 text-(--txt-secondary)">{count}</td>
+                  <td className="py-3 px-4 text-(--txt-primary)">{priority}</td>
+                  <td className="py-3 px-4 text-(--txt-secondary)">{count}</td>
                 </tr>
               ))}
             </tbody>
@@ -436,27 +501,30 @@ export function AnalyticsWorkItemsPage() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-(--border-subtle)">
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">Project</th>
-                <th className="py-3 font-medium text-(--txt-secondary)">Actions</th>
+                <th className="py-3 px-4 font-medium text-(--txt-secondary)">Project</th>
+                <th className="py-3 px-4 font-medium text-(--txt-secondary)">Actions</th>
               </tr>
             </thead>
             <tbody>
               {projects.map((project) => (
                 <tr key={project.id} className="border-b border-(--border-subtle) last:border-0">
-                  <td className="py-3 pr-4">
+                  <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       <span className="flex size-6 items-center justify-center rounded bg-(--bg-layer-2) text-[10px] font-medium text-(--txt-icon-secondary)"><IconBriefcase /></span>
                       <span className="text-(--txt-primary)">{project.name}</span>
                     </div>
                   </td>
-                  <td className="py-3">
-                    {/* Le bouton export possède désormais le project.id valide grâce à la boucle map */}
+                  <td className="py-3 px-4">
                     <button
                       type="button"
-                      onClick={() => { window.location.href = `/api/workspaces/${workspaceSlug}/projects/${project.id}/analytics/export`; }}
-                      className="flex items-center gap-1 rounded border border-(--border-subtle) bg-(--bg-layer-2) px-2 py-1 text-xs text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
+                      disabled={exportingProjectId === project.id}
+                      onClick={() => exportProjectCsv(project.id)}
+                      className="flex items-center gap-1 rounded border border-(--border-subtle) bg-(--bg-layer-2) px-2 py-1 text-xs text-(--txt-secondary) hover:bg-(--bg-layer-2-hover) disabled:opacity-60"
                     >
-                      <IconDownload /> Export Project CSV
+                      <IconDownload /> 
+                      {exportingProjectId === project.id 
+                        ? t('analytics.exporting', 'Exporting…') 
+                        : 'Export Project CSV'}
                     </button>
                   </td>
                 </tr>

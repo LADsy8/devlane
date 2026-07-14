@@ -451,7 +451,9 @@ func New(cfg Config) (*gin.Engine, *service.ImporterService) {
 		api.GET("/workspaces/:slug/projects/:projectId/cycles/:cycleId/analytics", cycleHandler.Analytics)
 
 		api.GET("/workspaces/:slug/projects/:projectId/modules-progress/", moduleHandler.ModulesProgress)
+		api.GET("/workspaces/:slug/projects/:projectId/modules/", moduleHandler.List)
 		api.POST("/workspaces/:slug/projects/:projectId/modules/", moduleHandler.Create)
+		api.GET("/workspaces/:slug/projects/:projectId/modules/:moduleId/", moduleHandler.Get)
 		api.PATCH("/workspaces/:slug/projects/:projectId/modules/:moduleId/", moduleHandler.Update)
 		api.DELETE("/workspaces/:slug/projects/:projectId/modules/:moduleId/", moduleHandler.Delete)
 		api.GET("/workspaces/:slug/projects/:projectId/modules/:moduleId/issues/", moduleHandler.ListIssues)

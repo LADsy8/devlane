@@ -28,7 +28,16 @@ func (h *AnalyticsHandler) GetWorkspaceAnalytics(c *gin.Context) {
 		State string
 		Count int64
 	}
-	if err := h.DB.Table("issues").Select("state, count(*) as count").Where("workspace_slug = ?", slug).Group("state").Scan(&stateResults).Error; err != nil {
+
+	err := h.DB.Table("issues").
+		Select("states.name as state, count(issues.id) as count").
+		Joins("INNER JOIN states ON issues.state_id = states.id").
+		Joins("INNER JOIN workspaces ON issues.workspace_id = workspaces.id").
+		Where("workspaces.slug = ? AND issues.deleted_at IS NULL AND workspaces.deleted_at IS NULL", slug).
+		Group("states.name").
+		Scan(&stateResults).Error
+
+	if err != nil {
 		h.Log.Error("failed to fetch workspace state analytics", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
@@ -39,9 +48,31 @@ func (h *AnalyticsHandler) GetWorkspaceAnalytics(c *gin.Context) {
 		byState[r.State] = r.Count
 	}
 
+	var priorityResults []struct {
+		Priority string
+		Count    int64
+	}
+	err = h.DB.Table("issues").
+		Select("issues.priority, count(issues.id) as count").
+		Joins("INNER JOIN workspaces ON issues.workspace_id = workspaces.id").
+		Where("workspaces.slug = ? AND issues.deleted_at IS NULL AND workspaces.deleted_at IS NULL AND issues.priority IS NOT NULL AND issues.priority != ''", slug).
+		Group("issues.priority").
+		Scan(&priorityResults).Error
+
+	if err != nil {
+		h.Log.Error("failed to fetch workspace priority analytics", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	byPriority := make(map[string]int64)
+	for _, r := range priorityResults {
+		byPriority[r.Priority] = r.Count
+	}
+
 	c.JSON(http.StatusOK, AnalyticsResponse{
 		ByState:    byState,
-		ByPriority: map[string]int64{"high": 3, "medium": 8, "low": 12}, // Exemple statique à lier à votre DB
+		ByPriority: byPriority,
 	})
 }
 
@@ -52,7 +83,15 @@ func (h *AnalyticsHandler) GetProjectAnalytics(c *gin.Context) {
 		State string
 		Count int64
 	}
-	if err := h.DB.Table("issues").Select("state, count(*) as count").Where("project_id = ?", projectID).Group("state").Scan(&stateResults).Error; err != nil {
+
+	err := h.DB.Table("issues").
+		Select("states.name as state, count(issues.id) as count").
+		Joins("INNER JOIN states ON issues.state_id = states.id").
+		Where("issues.project_id = ? AND issues.deleted_at IS NULL", projectID).
+		Group("states.name").
+		Scan(&stateResults).Error
+
+	if err != nil {
 		h.Log.Error("failed to fetch project analytics", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
@@ -75,13 +114,40 @@ func (h *AnalyticsHandler) ExportWorkspaceCSV(c *gin.Context) {
 	c.Header("Content-Type", "text/csv")
 	c.Header("Content-Transfer-Encoding", "binary")
 
+	var issues []struct {
+		ID       string
+		Name     string // CHANGED: Changed Title to Name to match schema column 'name'
+		State    string
+		Priority string
+	}
+
+	// CHANGED: Querying issues.name instead of issues.title
+	err := h.DB.Table("issues").
+		Select("issues.id, issues.name, states.name as state, issues.priority").
+		Joins("INNER JOIN states ON issues.state_id = states.id").
+		Joins("INNER JOIN workspaces ON issues.workspace_id = workspaces.id").
+		Where("workspaces.slug = ? AND issues.deleted_at IS NULL AND workspaces.deleted_at IS NULL", slug).
+		Scan(&issues).Error
+
+	if err != nil {
+		h.Log.Error("failed to fetch workspace issues for CSV export", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate CSV"})
+		return
+	}
+
 	writer := csv.NewWriter(c.Writer)
 	defer writer.Flush()
 
 	_ = writer.Write([]string{"Issue ID", "Title", "State", "Priority"})
 
-	_ = writer.Write([]string{"ISSUE-1", "Fix login bug", "In Progress", "High"})
-	_ = writer.Write([]string{"ISSUE-2", "Setup Docker environment", "Done", "Medium"})
+	for _, issue := range issues {
+		_ = writer.Write([]string{
+			issue.ID,
+			issue.Name,
+			issue.State,
+			issue.Priority,
+		})
+	}
 }
 
 func (h *AnalyticsHandler) ExportProjectCSV(c *gin.Context) {
@@ -91,9 +157,35 @@ func (h *AnalyticsHandler) ExportProjectCSV(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	c.Header("Content-Type", "text/csv")
 
+	var issues []struct {
+		ID    string
+		Name  string // CHANGED: Changed Title to Name to match schema column 'name'
+		State string
+	}
+
+	// CHANGED: Querying issues.name instead of issues.title
+	err := h.DB.Table("issues").
+		Select("issues.id, issues.name, states.name as state").
+		Joins("INNER JOIN states ON issues.state_id = states.id").
+		Where("issues.project_id = ? AND issues.deleted_at IS NULL", projectID).
+		Scan(&issues).Error
+
+	if err != nil {
+		h.Log.Error("failed to fetch project issues for CSV export", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate CSV"})
+		return
+	}
+
 	writer := csv.NewWriter(c.Writer)
 	defer writer.Flush()
 
 	_ = writer.Write([]string{"Project Issue ID", "Title", "State"})
-	_ = writer.Write([]string{"PROJ-101", "Implement analytics endpoints", "In Progress"})
+
+	for _, issue := range issues {
+		_ = writer.Write([]string{
+			issue.ID,
+			issue.Name,
+			issue.State,
+		})
+	}
 }
