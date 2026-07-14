@@ -1,11 +1,5 @@
-<<<<<<< HEAD
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-=======
-import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
->>>>>>> refs/remotes/origin/main
 import {
   LineChart,
   Line,
@@ -26,7 +20,7 @@ interface AnalyticsResponse {
   by_state: Record<string, number>;
   by_priority: Record<string, number>;
 }
-
+6
 const IconSearch = () => (
   <svg
     width="14"
@@ -109,11 +103,7 @@ export function AnalyticsWorkItemsPage() {
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-<<<<<<< HEAD
   useDocumentTitle("Analytics");
-=======
-  useDocumentTitle(t('analytics.documentTitle', 'Analytics'));
->>>>>>> refs/remotes/origin/main
 
   useEffect(() => {
     if (!workspaceSlug) {
@@ -130,64 +120,9 @@ export function AnalyticsWorkItemsPage() {
       if (cancelled) return;
       setWorkspace(w);
 
-<<<<<<< HEAD
       projectService.list(workspaceSlug)
         .then((projs) => {
           if (!cancelled && projs) setProjects(projs);
-=======
-  const getStateName = (stateId: string | null | undefined) =>
-    stateId ? (states.find((s) => s.id === stateId)?.name ?? stateId) : '—';
-
-  const backlogCount = issues.filter((i) => getStateName(i.state_id) === 'Backlog').length;
-  const startedCount = issues.filter((i) => getStateName(i.state_id) === 'In Progress').length;
-  const unstartedCount = issues.filter((i) => getStateName(i.state_id) === 'Todo').length;
-  const completedCount = issues.filter((i) => getStateName(i.state_id) === 'Done').length;
-
-  const priorityCounts = issues.reduce<Record<string, number>>((acc, i) => {
-    const p =
-      !i.priority || i.priority === 'none'
-        ? t('common.none', 'None')
-        : i.priority.charAt(0).toUpperCase() + i.priority.slice(1);
-    acc[p] = (acc[p] ?? 0) + 1;
-    return acc;
-  }, {});
-  const priorityRows = Object.entries(priorityCounts).map(([priority, count]) => ({
-    priority,
-    count,
-  }));
-
-  const doneStateIds = new Set(states.filter((s) => s.name === 'Done').map((s) => s.id));
-  const createdByDate = issues.reduce<Record<string, number>>((acc, i) => {
-    const d = i.created_at.slice(0, 10);
-    acc[d] = (acc[d] ?? 0) + 1;
-    return acc;
-  }, {});
-  const resolvedByDate = issues
-    .filter((i) => i.state_id && doneStateIds.has(i.state_id))
-    .reduce<Record<string, number>>((acc, i) => {
-      const d = i.updated_at.slice(0, 10);
-      acc[d] = (acc[d] ?? 0) + 1;
-      return acc;
-    }, {});
-  const allDates = Array.from(
-    new Set([...Object.keys(createdByDate), ...Object.keys(resolvedByDate)]),
-  ).sort();
-  const createdResolvedData =
-    allDates.length > 0
-      ? allDates.map((dateStr) => {
-          const d = new Date(dateStr + 'T12:00:00Z');
-          const label = d.toLocaleDateString('en-US', {
-            month: 'short',
-            day: '2-digit',
-            year: 'numeric',
-          });
-          return {
-            date: label,
-            dateKey: dateStr,
-            created: createdByDate[dateStr] ?? 0,
-            resolved: resolvedByDate[dateStr] ?? 0,
-          };
->>>>>>> refs/remotes/origin/main
         })
         .catch((err) => console.error("Erreur projets:", err));
 
@@ -254,25 +189,11 @@ export function AnalyticsWorkItemsPage() {
     <div className="space-y-6 pb-8">
       {/* Tabs */}
       <div className="flex gap-1 border-b border-(--border-subtle)">
-<<<<<<< HEAD
         <Link to={`${baseUrl}/overview`} className="border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-(--txt-secondary) no-underline hover:text-(--txt-primary)">
           Overview
         </Link>
         <Link to={`${baseUrl}/work-items`} className="border-b-2 border-(--brand-default) px-4 py-2.5 text-sm font-medium text-(--txt-primary) no-underline">
           Work items
-=======
-        <Link
-          to={`${baseUrl}/overview`}
-          className="border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-(--txt-secondary) no-underline hover:text-(--txt-primary)"
-        >
-          {t('analytics.overview', 'Overview')}
-        </Link>
-        <Link
-          to={`${baseUrl}/work-items`}
-          className="border-b-2 border-(--brand-default) px-4 py-2.5 text-sm font-medium text-(--txt-primary) no-underline"
-        >
-          {t('analytics.workItems', 'Work items')}
->>>>>>> refs/remotes/origin/main
         </Link>
       </div>
 
@@ -283,15 +204,8 @@ export function AnalyticsWorkItemsPage() {
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-4 py-3">
-<<<<<<< HEAD
           <p className="text-xs font-medium text-(--txt-tertiary)">Total Work items</p>
           <p className="mt-1 text-2xl font-semibold text-(--txt-primary)">{totalIssues}</p>
-=======
-          <p className="text-xs font-medium text-(--txt-tertiary)">
-            {t('analytics.totalWorkItems', 'Total Work items')}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-(--txt-primary)">{issues.length}</p>
->>>>>>> refs/remotes/origin/main
         </div>
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-4 py-3">
           <p className="text-xs font-medium text-(--txt-tertiary)">
@@ -342,13 +256,8 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: "var(--border-subtle)" }}
                   axisLine={{ stroke: "var(--border-subtle)" }}
                   label={{
-<<<<<<< HEAD
                     value: "DATE",
                     position: "insideBottom",
-=======
-                    value: t('analytics.axisDate', 'DATE'),
-                    position: 'insideBottom',
->>>>>>> refs/remotes/origin/main
                     offset: -4,
                     fill: "var(--txt-tertiary)",
                     fontSize: 11,
@@ -359,11 +268,7 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: "var(--border-subtle)" }}
                   axisLine={{ stroke: "var(--border-subtle)" }}
                   label={{
-<<<<<<< HEAD
                     value: "NO. OF WORK ITEMS",
-=======
-                    value: t('analytics.axisNoOfWorkItems', 'NO. OF WORK ITEMS'),
->>>>>>> refs/remotes/origin/main
                     angle: -90,
                     position: "insideLeft",
                     fill: "var(--txt-tertiary)",
@@ -451,13 +356,8 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: "var(--border-subtle)" }}
                   axisLine={{ stroke: "var(--border-subtle)" }}
                   label={{
-<<<<<<< HEAD
                     value: "PRIORITY",
                     position: "insideBottom",
-=======
-                    value: t('analytics.axisPriority', 'PRIORITY'),
-                    position: 'insideBottom',
->>>>>>> refs/remotes/origin/main
                     offset: -4,
                     fill: "var(--txt-tertiary)",
                     fontSize: 11,
@@ -468,11 +368,7 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: "var(--border-subtle)" }}
                   axisLine={{ stroke: "var(--border-subtle)" }}
                   label={{
-<<<<<<< HEAD
                     value: "NO. OF WORK ITEM",
-=======
-                    value: t('analytics.axisNoOfWorkItem', 'NO. OF WORK ITEM'),
->>>>>>> refs/remotes/origin/main
                     angle: -90,
                     position: "insideLeft",
                     fill: "var(--txt-tertiary)",
@@ -492,17 +388,7 @@ export function AnalyticsWorkItemsPage() {
       <section>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-<<<<<<< HEAD
             <h3 className="text-base font-semibold text-(--txt-primary)">{priorityRows.length} Priorities</h3>
-=======
-            <h3 className="text-base font-semibold text-(--txt-primary)">
-              {priorityRows.length} {t('analytics.priority', 'Priority')}
-              {priorityRows.length !== 1 ? t('analytics.prioritySuffixPlural', 'ies') : ''}
-            </h3>
-            <span className="flex size-8 items-center justify-center rounded-md border border-(--border-subtle) bg-(--bg-layer-2) text-(--txt-icon-tertiary)">
-              <IconSearch />
-            </span>
->>>>>>> refs/remotes/origin/main
           </div>
           <button
             type="button"
@@ -540,52 +426,15 @@ export function AnalyticsWorkItemsPage() {
      <section>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-<<<<<<< HEAD
             <h3 className="text-base font-semibold text-(--txt-primary)">{projects.length} Projects</h3>
           </div>
-=======
-            <h3 className="text-base font-semibold text-(--txt-primary)">
-              {t('analytics.projectsCount', '{{count}} Projects', { count: projects.length })}
-            </h3>
-            <span className="flex size-8 items-center justify-center rounded-md border border-(--border-subtle) bg-(--bg-layer-2) text-(--txt-icon-tertiary)">
-              <IconSearch />
-            </span>
-          </div>
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
-          >
-            <IconDownload /> {t('analytics.exportAsCsv', 'Export as csv')}
-          </button>
->>>>>>> refs/remotes/origin/main
         </div>
         <div className="overflow-x-auto rounded-md border border-(--border-subtle) bg-(--bg-surface-1)">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-(--border-subtle)">
-<<<<<<< HEAD
                 <th className="py-3 pr-4 font-medium text-(--txt-secondary)">Project</th>
                 <th className="py-3 font-medium text-(--txt-secondary)">Actions</th>
-=======
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
-                  {t('analytics.colProject', 'Project')}
-                </th>
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
-                  {t('analytics.colBacklog', 'Backlog')}
-                </th>
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
-                  {t('analytics.colStarted', 'Started')}
-                </th>
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
-                  {t('analytics.colUnstarted', 'Unstarted')}
-                </th>
-                <th className="py-3 pr-4 font-medium text-(--txt-secondary)">
-                  {t('analytics.colCompleted', 'Completed')}
-                </th>
-                <th className="py-3 font-medium text-(--txt-secondary)">
-                  {t('analytics.colCancelled', 'Cancelled')}
-                </th>
->>>>>>> refs/remotes/origin/main
               </tr>
             </thead>
             <tbody>
