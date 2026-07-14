@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from "react-router-dom";
 import {
   LineChart,
@@ -108,12 +109,12 @@ export function AnalyticsWorkItemsPage() {
   useEffect(() => {
     if (!workspaceSlug) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset loading when no slug (kept for future use)
+      
       setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
-
     workspaceService
     .getBySlug(workspaceSlug)
     .then((w) => {
@@ -127,7 +128,9 @@ export function AnalyticsWorkItemsPage() {
         .catch((err) => console.error("Erreur projets:", err));
 
       fetch(`/api/workspaces/${workspaceSlug}/analytics`)
+        
         .then((res) => {
+          console.log("after fetch")
           if (!res.ok) {
             throw new Error(`Code erreur serveur Go : ${res.status}`);
           }
@@ -392,7 +395,7 @@ export function AnalyticsWorkItemsPage() {
           </div>
           <button
             type="button"
-            onClick={() => { window.location.href = `/api/workspaces/${workspaceSlug}/analytics/export`; }}
+            onClick={() => { window.location.href = `/api/workspaces/${workspaceSlug}/analytics/export`;}}
             className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover)"
           >
             <IconDownload /> {t('analytics.exportAsCsv', 'Export as csv')}

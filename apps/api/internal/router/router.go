@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Devlaner/devlane/api/internal/auth"
-	"github.com/Devlaner/devlane/api/internal/github"
+	gh "github.com/Devlaner/devlane/api/internal/github"
 	"github.com/Devlaner/devlane/api/internal/handler"
 	"github.com/Devlaner/devlane/api/internal/middleware"
 	"github.com/Devlaner/devlane/api/internal/minio"
