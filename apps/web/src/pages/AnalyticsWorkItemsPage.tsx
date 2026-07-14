@@ -239,9 +239,9 @@ export function AnalyticsWorkItemsPage() {
   const totalIssues = backlogCount + startedCount + unstartedCount + completedCount;
 
   const priorityRows = Object.entries(analytics?.by_priority ?? {}).map(([priority, count]) => ({
-    priority: priority.charAt(0).toUpperCase() + priority.slice(1),
-    count,
-  }));
+  priority: priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : "None",
+  count,
+}));
 
   const createdResolvedData: any[] = [];
 
