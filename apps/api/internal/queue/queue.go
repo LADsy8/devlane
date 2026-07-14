@@ -14,6 +14,7 @@ import (
 const (
 	QueueEmails   = "devlane.emails"
 	QueueWebhooks = "devlane.webhooks"
+	QueueImports  = "devlane.imports"
 	QueueDefault  = "devlane.default"
 )
 
@@ -21,6 +22,7 @@ const (
 const (
 	TaskSendEmail      = "send_email"
 	TaskWebhookDeliver = "webhook_deliver"
+	TaskImportRun      = "import_run"
 )
 
 // SendEmailPayload is the payload for send_email task.
@@ -35,10 +37,18 @@ type SendEmailPayload struct {
 
 // WebhookPayload is the payload for webhook_deliver task.
 type WebhookPayload struct {
-	URL     string                 `json:"url"`
-	Secret  string                 `json:"secret,omitempty"`
-	Event   string                 `json:"event"`
-	Payload map[string]interface{} `json:"payload"`
+	WebhookID   string                 `json:"webhook_id,omitempty"`
+	WorkspaceID string                 `json:"workspace_id,omitempty"`
+	URL         string                 `json:"url"`
+	Secret      string                 `json:"secret,omitempty"`
+	Event       string                 `json:"event"`
+	Payload     map[string]interface{} `json:"payload"`
+}
+
+// ImportPayload is the payload for an import_run task. The rows themselves live
+// on the importer row (data JSONB); only the id is carried through the queue.
+type ImportPayload struct {
+	ImporterID string `json:"importer_id"`
 }
 
 // Publisher publishes tasks to RabbitMQ.
@@ -50,13 +60,13 @@ type Publisher struct {
 
 // NewPublisher declares queues and returns a publisher.
 func NewPublisher(ch *amqp.Channel, log *slog.Logger) (*Publisher, error) {
-	for _, q := range []string{QueueEmails, QueueWebhooks, QueueDefault} {
+	for _, q := range []string{QueueEmails, QueueWebhooks, QueueImports, QueueDefault} {
 		if _, err := ch.QueueDeclare(q, true, false, false, false, nil); err != nil {
 			return nil, fmt.Errorf("declare queue %s: %w", q, err)
 		}
 	}
 	return &Publisher{ch: ch, log: log, queues: map[string]bool{
-		QueueEmails: true, QueueWebhooks: true, QueueDefault: true,
+		QueueEmails: true, QueueWebhooks: true, QueueImports: true, QueueDefault: true,
 	}}, nil
 }
 
@@ -95,6 +105,17 @@ func (p *Publisher) PublishWebhook(ctx context.Context, payload WebhookPayload) 
 	}
 	return p.PublishJSON(ctx, QueueWebhooks, map[string]interface{}{
 		"type":    TaskWebhookDeliver,
+		"payload": payload,
+	})
+}
+
+// PublishImport enqueues an import_run task.
+func (p *Publisher) PublishImport(ctx context.Context, payload ImportPayload) error {
+	if p.log != nil {
+		p.log.Debug("queue publish import", "importer_id", payload.ImporterID)
+	}
+	return p.PublishJSON(ctx, QueueImports, map[string]interface{}{
+		"type":    TaskImportRun,
 		"payload": payload,
 	})
 }

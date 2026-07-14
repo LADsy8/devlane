@@ -233,6 +233,47 @@ func (s *ProjectService) Delete(ctx context.Context, workspaceSlug string, proje
 	return s.ps.Delete(ctx, projectID)
 }
 
+// Archive hides a project from the active lists without deleting it. Requires
+// project admin, like Delete.
+func (s *ProjectService) Archive(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID) error {
+	p, err := s.GetByID(ctx, workspaceSlug, projectID, userID)
+	if err != nil {
+		return err
+	}
+	if err := s.requireProjectAdmin(ctx, p.WorkspaceID, p.ID, userID); err != nil {
+		return err
+	}
+	return s.ps.SetArchived(ctx, projectID, true)
+}
+
+// Restore brings an archived project back into the active lists.
+func (s *ProjectService) Restore(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID) error {
+	p, err := s.GetByID(ctx, workspaceSlug, projectID, userID)
+	if err != nil {
+		return err
+	}
+	if err := s.requireProjectAdmin(ctx, p.WorkspaceID, p.ID, userID); err != nil {
+		return err
+	}
+	return s.ps.SetArchived(ctx, projectID, false)
+}
+
+// ListArchived returns the workspace's archived projects the user may see.
+func (s *ProjectService) ListArchived(ctx context.Context, workspaceSlug string, userID uuid.UUID) ([]model.Project, error) {
+	wrk, err := s.ws.GetBySlug(ctx, workspaceSlug)
+	if err != nil {
+		return nil, ErrProjectNotFound
+	}
+	ok, _ := s.ws.IsMember(ctx, wrk.ID, userID)
+	if !ok {
+		return nil, ErrProjectForbidden
+	}
+	if s.isWorkspaceAdmin(ctx, wrk.ID, userID) {
+		return s.ps.ListArchivedByWorkspaceID(ctx, wrk.ID)
+	}
+	return s.ps.ListArchivedVisibleByWorkspaceID(ctx, wrk.ID, userID)
+}
+
 func (s *ProjectService) ListMembers(ctx context.Context, workspaceSlug string, projectID uuid.UUID, userID uuid.UUID) ([]model.ProjectMember, error) {
 	_, err := s.GetByID(ctx, workspaceSlug, projectID, userID)
 	if err != nil {

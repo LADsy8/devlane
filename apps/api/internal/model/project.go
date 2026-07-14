@@ -82,6 +82,9 @@ type Project struct {
 	// CloseIn is the number of months after which inactive (non-terminal) work
 	// items are auto-closed into the project's cancelled state. 0 disables it.
 	CloseIn int `gorm:"column:close_in;default:0" json:"close_in"`
+	// ArchivedAt is set when the project is archived; nil for active projects.
+	// Archived projects are hidden from the active project lists but not deleted.
+	ArchivedAt *time.Time `gorm:"column:archived_at;type:timestamptz" json:"archived_at,omitempty"`
 }
 
 func (Project) TableName() string { return "projects" }

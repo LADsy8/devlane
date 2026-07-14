@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { NotificationPreferencesResponse } from '../../api/types';
 
 type Prefs = NotificationPreferencesResponse;
@@ -79,14 +80,19 @@ function Toggle({
 export function NotificationPreferencesPanel({
   load,
   save,
-  title = 'Notifications',
-  description = 'Choose which updates reach you in-app and by email.',
+  title,
+  description,
 }: {
   load: () => Promise<Prefs>;
   save: (partial: Partial<Prefs>) => Promise<Prefs>;
   title?: string;
   description?: string;
 }) {
+  const { t } = useTranslation();
+  const displayTitle = title ?? t('settings.notifications.title', 'Notifications');
+  const displayDescription =
+    description ??
+    t('settings.notifications.description', 'Choose which updates reach you in-app and by email.');
   const [prefs, setPrefs] = useState<Prefs | null>(null);
 
   useEffect(() => {
@@ -122,42 +128,54 @@ export function NotificationPreferencesPanel({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-semibold text-(--txt-primary)">{title}</h2>
-        <p className="mt-0.5 text-sm text-(--txt-secondary)">{description}</p>
+        <h2 className="text-base font-semibold text-(--txt-primary)">{displayTitle}</h2>
+        <p className="mt-0.5 text-sm text-(--txt-secondary)">{displayDescription}</p>
       </div>
       <div className="overflow-hidden rounded-(--radius-md) border border-(--border-subtle)">
         <div className="flex items-center gap-4 border-b border-(--border-subtle) bg-(--bg-layer-1) px-4 py-2 text-xs font-medium text-(--txt-secondary)">
-          <span className="flex-1">Type</span>
-          <span className="w-14 text-center">In-app</span>
-          <span className="w-14 text-center">Email</span>
+          <span className="flex-1">{t('settings.notifications.columnType', 'Type')}</span>
+          <span className="w-14 text-center">
+            {t('settings.notifications.columnInApp', 'In-app')}
+          </span>
+          <span className="w-14 text-center">
+            {t('settings.notifications.columnEmail', 'Email')}
+          </span>
         </div>
-        {ROWS.map(({ id, label, desc, inApp, email }) => (
-          <div
-            key={id}
-            className="flex items-start gap-4 border-b border-(--border-subtle) px-4 py-3 last:border-b-0"
-          >
-            <div className="flex-1">
-              <p className="text-sm font-medium text-(--txt-primary)">{label}</p>
-              <p className="mt-0.5 text-sm text-(--txt-secondary)">{desc}</p>
+        {ROWS.map(({ id, label, desc, inApp, email }) => {
+          const rowLabel = t(`settings.notifications.row.${id}.label`, label);
+          const rowDesc = t(`settings.notifications.row.${id}.desc`, desc);
+          return (
+            <div
+              key={id}
+              className="flex items-start gap-4 border-b border-(--border-subtle) px-4 py-3 last:border-b-0"
+            >
+              <div className="flex-1">
+                <p className="text-sm font-medium text-(--txt-primary)">{rowLabel}</p>
+                <p className="mt-0.5 text-sm text-(--txt-secondary)">{rowDesc}</p>
+              </div>
+              <div className="flex w-14 justify-center">
+                <Toggle
+                  checked={!!prefs?.[inApp]}
+                  disabled={!loaded}
+                  label={t('settings.notifications.inAppAria', '{{label}} in-app', {
+                    label: rowLabel,
+                  })}
+                  onToggle={() => void toggle(inApp)}
+                />
+              </div>
+              <div className="flex w-14 justify-center">
+                <Toggle
+                  checked={!!prefs?.[email]}
+                  disabled={!loaded}
+                  label={t('settings.notifications.emailAria', '{{label}} email', {
+                    label: rowLabel,
+                  })}
+                  onToggle={() => void toggle(email)}
+                />
+              </div>
             </div>
-            <div className="flex w-14 justify-center">
-              <Toggle
-                checked={!!prefs?.[inApp]}
-                disabled={!loaded}
-                label={`${label} in-app`}
-                onToggle={() => void toggle(inApp)}
-              />
-            </div>
-            <div className="flex w-14 justify-center">
-              <Toggle
-                checked={!!prefs?.[email]}
-                disabled={!loaded}
-                label={`${label} email`}
-                onToggle={() => void toggle(email)}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

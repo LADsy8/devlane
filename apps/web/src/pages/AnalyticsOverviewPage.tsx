@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import {
   Radar,
@@ -20,6 +21,7 @@ import type {
 } from '../api/types';
 
 export function AnalyticsOverviewPage() {
+  const { t } = useTranslation();
   const { workspaceSlug } = useParams<{ workspaceSlug: string }>();
   const [workspace, setWorkspace] = useState<WorkspaceApiResponse | null>(null);
   const [projects, setProjects] = useState<ProjectApiResponse[]>([]);
@@ -27,7 +29,7 @@ export function AnalyticsOverviewPage() {
   const [members, setMembers] = useState<WorkspaceMemberApiResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useDocumentTitle('Analytics');
+  useDocumentTitle(t('analytics.documentTitle', 'Analytics'));
 
   useEffect(() => {
     if (!workspaceSlug) {
@@ -91,35 +93,39 @@ export function AnalyticsOverviewPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8 text-sm text-(--txt-tertiary)">
-        Loading…
+        {t('common.loading', 'Loading…')}
       </div>
     );
   }
   if (!workspace) {
-    return <div className="text-(--txt-secondary)">Workspace not found.</div>;
+    return (
+      <div className="text-(--txt-secondary)">
+        {t('common.workspaceNotFound', 'Workspace not found.')}
+      </div>
+    );
   }
 
   const baseUrl = `/${workspace.slug}/analytics`;
 
   const summaryCards = [
-    { label: 'Total Users', value: totalUsers },
-    { label: 'Total Admins', value: totalAdmins },
-    { label: 'Total Members', value: totalMembers },
-    { label: 'Total Guests', value: totalGuests },
-    { label: 'Total Projects', value: projects.length },
-    { label: 'Total Work items', value: totalWorkItems },
-    { label: 'Total Cycles', value: cycles.length },
-    { label: 'Total Intake', value: 0 },
+    { label: t('analytics.totalUsers', 'Total Users'), value: totalUsers },
+    { label: t('analytics.totalAdmins', 'Total Admins'), value: totalAdmins },
+    { label: t('analytics.totalMembers', 'Total Members'), value: totalMembers },
+    { label: t('analytics.totalGuests', 'Total Guests'), value: totalGuests },
+    { label: t('analytics.totalProjects', 'Total Projects'), value: projects.length },
+    { label: t('analytics.totalWorkItems', 'Total Work items'), value: totalWorkItems },
+    { label: t('analytics.totalCycles', 'Total Cycles'), value: cycles.length },
+    { label: t('analytics.totalIntake', 'Total Intake'), value: 0 },
   ];
 
   const radarDimensions = [
-    { name: 'Work Items', value: totalWorkItems },
-    { name: 'Cycles', value: cycles.length },
-    { name: 'Modules', value: modules.length },
-    { name: 'Intake', value: 0 },
-    { name: 'Members', value: totalUsers },
-    { name: 'Pages', value: pages.length },
-    { name: 'Views', value: 1 },
+    { name: t('analytics.dimensionWorkItems', 'Work Items'), value: totalWorkItems },
+    { name: t('analytics.dimensionCycles', 'Cycles'), value: cycles.length },
+    { name: t('analytics.dimensionModules', 'Modules'), value: modules.length },
+    { name: t('analytics.dimensionIntake', 'Intake'), value: 0 },
+    { name: t('analytics.dimensionMembers', 'Members'), value: totalUsers },
+    { name: t('analytics.dimensionPages', 'Pages'), value: pages.length },
+    { name: t('analytics.dimensionViews', 'Views'), value: 1 },
   ];
 
   const radarMax = Math.max(...radarDimensions.map((d) => d.value), 1);
@@ -137,17 +143,19 @@ export function AnalyticsOverviewPage() {
           to={`${baseUrl}/overview`}
           className="border-b-2 border-(--brand-default) px-4 py-2.5 text-sm font-medium text-(--txt-primary) no-underline"
         >
-          Overview
+          {t('analytics.overview', 'Overview')}
         </Link>
         <Link
           to={`${baseUrl}/work-items`}
           className="border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-(--txt-secondary) no-underline hover:text-(--txt-primary)"
         >
-          Work items
+          {t('analytics.workItems', 'Work items')}
         </Link>
       </div>
 
-      <h2 className="text-lg font-semibold text-(--txt-primary)">Overview</h2>
+      <h2 className="text-lg font-semibold text-(--txt-primary)">
+        {t('analytics.overview', 'Overview')}
+      </h2>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -166,11 +174,15 @@ export function AnalyticsOverviewPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         {/* Project Insights: contains Work Items and Summary of Projects (same row) */}
         <section className="min-w-0 rounded-md border border-(--border-subtle) bg-(--bg-surface-1) p-6">
-          <h3 className="mb-4 text-base font-semibold text-(--txt-primary)">Project Insights</h3>
+          <h3 className="mb-4 text-base font-semibold text-(--txt-primary)">
+            {t('analytics.projectInsights', 'Project Insights')}
+          </h3>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-[3fr_2fr]">
             {/* Work Items - radar chart */}
             <div className="min-w-0">
-              <h4 className="mb-3 text-sm font-semibold text-(--txt-primary)">Work Items</h4>
+              <h4 className="mb-3 text-sm font-semibold text-(--txt-primary)">
+                {t('analytics.workItemsChartTitle', 'Work Items')}
+              </h4>
               <div className="rounded-md bg-(--bg-surface-1) p-4">
                 <div className="h-[400px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -191,7 +203,7 @@ export function AnalyticsOverviewPage() {
                         tickLine={{ stroke: 'var(--border-subtle)' }}
                       />
                       <Radar
-                        name="Metrics"
+                        name={t('analytics.metrics', 'Metrics')}
                         dataKey="value"
                         stroke="var(--brand-default)"
                         fill="var(--brand-default)"
@@ -207,10 +219,14 @@ export function AnalyticsOverviewPage() {
             {/* Summary of Projects */}
             <div className="min-w-0">
               <h4 className="mb-2 text-sm font-semibold text-(--txt-primary)">
-                Summary of Projects
+                {t('analytics.summaryOfProjects', 'Summary of Projects')}
               </h4>
-              <p className="mb-1 text-sm font-semibold text-(--txt-primary)">All Projects</p>
-              <p className="mb-3 text-sm text-(--txt-tertiary)">Trend on charts</p>
+              <p className="mb-1 text-sm font-semibold text-(--txt-primary)">
+                {t('analytics.allProjects', 'All Projects')}
+              </p>
+              <p className="mb-3 text-sm text-(--txt-tertiary)">
+                {t('analytics.trendOnCharts', 'Trend on charts')}
+              </p>
               <ul className="space-y-3 text-sm">
                 {radarDimensions.map((d) => (
                   <li
@@ -230,7 +246,9 @@ export function AnalyticsOverviewPage() {
 
         {/* Active Projects */}
         <section className="min-w-0">
-          <h3 className="mb-4 text-base font-semibold text-(--txt-primary)">Active Projects</h3>
+          <h3 className="mb-4 text-base font-semibold text-(--txt-primary)">
+            {t('analytics.activeProjects', 'Active Projects')}
+          </h3>
           <ul className="space-y-2">
             {projects.map((p) => (
               <li

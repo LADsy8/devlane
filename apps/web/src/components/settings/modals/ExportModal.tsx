@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, Modal } from '../../ui';
 import { IconChevronDown } from '../icons';
 import { issueService } from '../../../services/issueService';
@@ -42,12 +43,15 @@ export function ExportModal({
   setExporting,
   setExportProjectOpen,
 }: ExportModalProps) {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={`Export ${exportFormat.toUpperCase()}`}
+      title={t('settings.export.modalTitle', 'Export {{format}}', {
+        format: exportFormat.toUpperCase(),
+      })}
       footer={
         <>
           <Button
@@ -55,7 +59,7 @@ export function ExportModal({
             onClick={() => setExportProjectOpen(false)}
             disabled={exporting}
           >
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button
             disabled={exporting}
@@ -142,26 +146,30 @@ export function ExportModal({
                 downloadBlob(blob, filename);
                 setExportProjectOpen(false);
               } catch {
-                setError('Export failed. Please try again.');
+                setError(t('settings.export.failed', 'Export failed. Please try again.'));
               } finally {
                 setExporting(false);
               }
             }}
           >
-            {exporting ? 'Exporting…' : 'Export'}
+            {exporting
+              ? t('settings.export.exporting', 'Exporting…')
+              : t('settings.export.action', 'Export')}
           </Button>
         </>
       }
     >
       <div>
-        <label className="mb-1 block text-sm font-medium text-(--txt-secondary)">Projects</label>
+        <label className="mb-1 block text-sm font-medium text-(--txt-secondary)">
+          {t('settings.export.projects', 'Projects')}
+        </label>
         <div className="relative">
           <select
             value={exportProjectValue}
             onChange={(e) => setExportProjectValue(e.target.value)}
             className="w-full appearance-none rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-3 py-2 pr-8 text-sm text-(--txt-primary) focus:outline-none focus:border-(--border-strong)"
           >
-            <option value="all">All projects</option>
+            <option value="all">{t('settings.export.allProjects', 'All projects')}</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -174,7 +182,10 @@ export function ExportModal({
         </div>
         {exportFormat === 'xlsx' && (
           <p className="mt-2 text-sm text-(--txt-tertiary)">
-            Exports as a real Excel workbook (.xlsx) generated on the server.
+            {t(
+              'settings.export.xlsxHint',
+              'Exports as a real Excel workbook (.xlsx) generated on the server.',
+            )}
           </p>
         )}
         {error && <p className="mt-2 text-sm text-(--txt-danger-primary)">{error}</p>}

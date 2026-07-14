@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
 import { IssuePRBadge } from '../IssuePRBadge';
@@ -17,7 +18,10 @@ import {
 } from '../EditableCells';
 import { DatePickerTrigger } from '../DatePickerTrigger';
 import { isOverdue, membersFromAssigneeIds } from '../../../lib/issueRowHelpers';
-import type { GroupedIssuesResult } from '../../../lib/issueListGroupAndSort';
+import type {
+  GroupedIssuesResult,
+  SubGroupedIssuesResult,
+} from '../../../lib/issueListGroupAndSort';
 import type {
   SavedViewDisplayPropertyId,
   SavedViewGroupBy,
@@ -38,6 +42,8 @@ import {
 
 interface IssueLayoutBoardProps extends IssueLayoutProps {
   groupedIssues?: GroupedIssuesResult;
+  /** Optional second-level grouping; when present the board renders swimlanes. */
+  subGroupedIssues?: SubGroupedIssuesResult | null;
   hasCol?: (key: SavedViewDisplayPropertyId) => boolean;
   groupBy?: SavedViewGroupBy;
   showEmptyGroups?: boolean;
@@ -59,6 +65,7 @@ export function IssueLayoutBoard({
   now,
   projectsById,
   groupedIssues,
+  subGroupedIssues,
   hasCol: hasColProp,
   groupBy,
   showEmptyGroups = false,
@@ -69,6 +76,7 @@ export function IssueLayoutBoard({
   onCardMove,
   onUpdateIssue,
 }: IssueLayoutBoardProps) {
+  const { t } = useTranslation();
   const labelById = useMemo(() => new Map(labels.map((l) => [l.id, l])), [labels]);
   const stateById = useMemo(() => new Map(states.map((s) => [s.id, s])), [states]);
   const issueById = useMemo(() => new Map(issues.map((i) => [i.id, i])), [issues]);
@@ -112,7 +120,9 @@ export function IssueLayoutBoard({
           const items = groupedIssues.groups.get(key) ?? [];
           return {
             key,
-            title: groupedIssues.isFlat ? 'All work items' : groupedIssues.title(key),
+            title: groupedIssues.isFlat
+              ? t('workItem.board.allWorkItems', 'All work items')
+              : groupedIssues.title(key),
             color: stateById.get(key)?.color ?? labelById.get(key)?.color ?? undefined,
             items,
           };
@@ -140,7 +150,7 @@ export function IssueLayoutBoard({
         (g) => presentGroups.has(g) || (buckets.get(g)?.length ?? 0) > 0,
       ).map((g) => ({
         key: g,
-        title: STATE_GROUP_LABELS[g] ?? g,
+        title: t(`stateGroup.${g}`, STATE_GROUP_LABELS[g] ?? g),
         color: undefined as string | undefined,
         items: buckets.get(g) ?? [],
       }));
@@ -166,10 +176,14 @@ export function IssueLayoutBoard({
       items: buckets.get(s.id) ?? [],
     }));
     return { columns, orphans };
-  }, [groupedIssues, groupByStateGroup, states, issues, stateById, labelById, showEmptyGroups]);
+  }, [groupedIssues, groupByStateGroup, states, issues, stateById, labelById, showEmptyGroups, t]);
 
+  // Drag-and-drop is disabled in swimlane mode to keep the cross-dimension
+  // interaction unambiguous (a drop would otherwise be both a column and a lane).
   const dndEnabled =
-    Boolean(onCardMove) && (groupByStateGroup || !groupedIssues || groupBy === 'states');
+    Boolean(onCardMove) &&
+    !subGroupedIssues &&
+    (groupByStateGroup || !groupedIssues || groupBy === 'states');
 
   const renderCard = (issue: IssueApiResponse) => (
     <BoardCard
@@ -214,6 +228,52 @@ export function IssueLayoutBoard({
     return Boolean(target) && target !== issue.state_id;
   };
 
+  // Swimlanes: one horizontal band of columns (primary groups) per sub-group.
+  if (subGroupedIssues) {
+    const sg = subGroupedIssues;
+    return (
+      <div className="space-y-6 px-4 py-4">
+        {sg.subOrder.map((subKey) => {
+          const laneCount = sg.primaryOrder.reduce(
+            (n, pk) => n + (sg.cells.get(pk)?.get(subKey)?.length ?? 0),
+            0,
+          );
+          if (laneCount === 0 && !showEmptyGroups) return null;
+          return (
+            <section key={subKey} className="space-y-2">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-(--txt-primary)">
+                {sg.subTitle(subKey)}
+                <span className="font-normal text-(--txt-tertiary)">{laneCount}</span>
+              </h3>
+              <div className="flex gap-3 overflow-x-auto">
+                {sg.primaryOrder.map((pk) => {
+                  const items = sg.cells.get(pk)?.get(subKey) ?? [];
+                  if (items.length === 0 && !showEmptyGroups) return null;
+                  const color = stateById.get(pk)?.color ?? labelById.get(pk)?.color ?? undefined;
+                  return (
+                    <BoardColumn
+                      key={pk}
+                      title={sg.primaryTitle(pk)}
+                      color={color}
+                      count={items.length}
+                    >
+                      {items.map(renderCard)}
+                      {items.length === 0 && (
+                        <p className="px-2 py-6 text-center text-xs text-(--txt-tertiary)">
+                          {t('common.noWorkItems', 'No work items')}
+                        </p>
+                      )}
+                    </BoardColumn>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="flex gap-3 overflow-x-auto px-4 py-4">
       {columns.map((col) => (
@@ -245,13 +305,19 @@ export function IssueLayoutBoard({
         >
           {col.items.map(renderCard)}
           {col.items.length === 0 && (
-            <p className="px-2 py-6 text-center text-xs text-(--txt-tertiary)">No work items</p>
+            <p className="px-2 py-6 text-center text-xs text-(--txt-tertiary)">
+              {t('common.noWorkItems', 'No work items')}
+            </p>
           )}
         </BoardColumn>
       ))}
 
       {orphans.length > 0 && (
-        <BoardColumn title="No state" color={undefined} count={orphans.length}>
+        <BoardColumn
+          title={t('common.noState', 'No state')}
+          color={undefined}
+          count={orphans.length}
+        >
           {orphans.map(renderCard)}
         </BoardColumn>
       )}
@@ -374,6 +440,7 @@ function BoardCard({
   cycleName,
   moduleName,
 }: BoardCardProps) {
+  const { t } = useTranslation();
   const displayId = issueDisplayId(issue, project, projectsById);
   const editable = Boolean(onUpdateIssue);
   const startStr = formatShort(issue.start_date);
@@ -454,10 +521,10 @@ function BoardCard({
               {showStart ? (
                 <CellGuard>
                   <DatePickerTrigger
-                    label="Start date"
+                    label={t('common.startDate', 'Start date')}
                     icon={<Calendar />}
                     value={issue.start_date ?? ''}
-                    placeholder="Start"
+                    placeholder={t('common.start', 'Start')}
                     onChange={(v) => onUpdateIssue(issue.id, { start_date: v || null })}
                   />
                 </CellGuard>
@@ -465,10 +532,10 @@ function BoardCard({
               {showDue ? (
                 <CellGuard>
                   <DatePickerTrigger
-                    label="Due date"
+                    label={t('common.dueDate', 'Due date')}
                     icon={<Calendar />}
                     value={issue.target_date ?? ''}
-                    placeholder="Due"
+                    placeholder={t('common.due', 'Due')}
                     className={
                       isOverdue(issue.target_date, state?.group, now)
                         ? 'border-(--border-danger-strong) text-(--txt-danger-primary)'
@@ -506,7 +573,7 @@ function BoardCard({
           {showSubWorkCount ? (
             <span
               className="inline-flex h-5 items-center rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1) px-1.5 text-[11px] text-(--txt-secondary)"
-              title="Sub-work items"
+              title={t('common.subWorkItems', 'Sub-work items')}
             >
               {subWorkCount}
             </span>

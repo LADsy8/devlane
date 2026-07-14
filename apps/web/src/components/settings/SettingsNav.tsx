@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Avatar } from '../ui';
 import { ProjectIconDisplay } from '../ProjectIconModal';
 import { getImageUrl } from '../../lib/utils';
@@ -74,6 +75,7 @@ export function SettingsNav({
   section,
   setSection,
 }: SettingsNavProps) {
+  const { t } = useTranslation();
   return (
     <aside className="w-56 shrink-0 space-y-6">
       {isAccountTab ? (
@@ -89,24 +91,24 @@ export function SettingsNav({
           </div>
           <nav className="space-y-0.5">
             <p className="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-(--txt-tertiary)">
-              Your Profile
+              {t('settings.nav.yourProfile', 'Your Profile')}
             </p>
             {ACCOUNT_SECTIONS_PROFILE.map(({ id, label, icon }) => (
               <SectionNavButton
                 key={id}
-                label={label}
+                label={t(`settings.section.${id}`, label)}
                 icon={icon}
                 active={accountSection === id}
                 onClick={() => setAccountSection(id)}
               />
             ))}
             <p className="mb-2 mt-4 px-2 text-xs font-medium uppercase tracking-wider text-(--txt-tertiary)">
-              Developer
+              {t('settings.nav.developer', 'Developer')}
             </p>
             {ACCOUNT_SECTIONS_DEVELOPER.map(({ id, label, icon }) => (
               <SectionNavButton
                 key={id}
-                label={label}
+                label={t(`settings.section.${id}`, label)}
                 icon={icon}
                 active={accountSection === id}
                 onClick={() => setAccountSection(id)}
@@ -124,12 +126,12 @@ export function SettingsNav({
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-(--txt-primary)">{workspace.name}</p>
-              <p className="text-xs text-(--txt-tertiary)">Admin</p>
+              <p className="text-xs text-(--txt-tertiary)">{t('settings.nav.admin', 'Admin')}</p>
             </div>
           </div>
           <nav className="space-y-0.5">
             <p className="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-(--txt-tertiary)">
-              Projects
+              {t('settings.nav.projects', 'Projects')}
             </p>
             {projects.map((proj) => {
               const isSelected = selectedProjectId === proj.id;
@@ -148,14 +150,16 @@ export function SettingsNav({
                       <ProjectIconDisplay emoji={proj.emoji} icon_prop={proj.icon_prop} size={16} />
                     </span>
                     <span className="min-w-0 truncate">{proj.name}</span>
-                    <span className="ml-auto shrink-0 text-xs text-(--txt-tertiary)">Admin</span>
+                    <span className="ml-auto shrink-0 text-xs text-(--txt-tertiary)">
+                      {t('settings.nav.admin', 'Admin')}
+                    </span>
                   </button>
                   {isSelected && (
                     <div className="ml-4 space-y-0.5 border-l border-(--border-subtle) pl-2">
                       {PROJECT_SECTIONS.map(({ id, label, icon }) => (
                         <SectionNavButton
                           key={id}
-                          label={label}
+                          label={t(`settings.section.${id}`, label)}
                           icon={icon}
                           active={projectSection === id}
                           onClick={() => setProjectSection(proj.id, id)}
@@ -179,29 +183,29 @@ export function SettingsNav({
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-(--txt-primary)">{workspace.name}</p>
-              <p className="text-xs text-(--txt-tertiary)">Admin</p>
+              <p className="text-xs text-(--txt-tertiary)">{t('settings.nav.admin', 'Admin')}</p>
             </div>
           </div>
           <nav className="space-y-0.5">
             <p className="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-(--txt-tertiary)">
-              Administration
+              {t('settings.nav.administration', 'Administration')}
             </p>
             {WORKSPACE_SECTIONS.slice(0, 5).map(({ id, label, icon }) => (
               <SectionNavButton
                 key={id}
-                label={label}
+                label={t(`settings.section.${id}`, label)}
                 icon={icon}
                 active={section === id}
                 onClick={() => setSection(id)}
               />
             ))}
             <p className="mb-2 mt-4 px-2 text-xs font-medium uppercase tracking-wider text-(--txt-tertiary)">
-              Developer
+              {t('settings.nav.developer', 'Developer')}
             </p>
             {WORKSPACE_SECTIONS.slice(5).map(({ id, label, icon }) => (
               <SectionNavButton
                 key={id}
-                label={label}
+                label={t(`settings.section.${id}`, label)}
                 icon={icon}
                 active={section === id}
                 onClick={() => setSection(id)}

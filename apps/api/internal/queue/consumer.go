@@ -144,7 +144,7 @@ func HandleSendEmail(log *slog.Logger, sender func(ctx context.Context, to, subj
 }
 
 // HandleWebhook parses webhook_deliver task and runs the given deliverer.
-func HandleWebhook(deliverer func(ctx context.Context, url, secret, event string, payload map[string]interface{}) error) TaskHandler {
+func HandleWebhook(deliverer func(ctx context.Context, p WebhookPayload) error) TaskHandler {
 	return func(ctx context.Context, queue string, body []byte) error {
 		var msg struct {
 			Type    string         `json:"type"`
@@ -156,7 +156,24 @@ func HandleWebhook(deliverer func(ctx context.Context, url, secret, event string
 		if msg.Type != TaskWebhookDeliver {
 			return nil
 		}
-		return deliverer(ctx, msg.Payload.URL, msg.Payload.Secret, msg.Payload.Event, msg.Payload.Payload)
+		return deliverer(ctx, msg.Payload)
+	}
+}
+
+// HandleImport parses an import_run task and runs the given importer.
+func HandleImport(runner func(ctx context.Context, importerID string) error) TaskHandler {
+	return func(ctx context.Context, queue string, body []byte) error {
+		var msg struct {
+			Type    string        `json:"type"`
+			Payload ImportPayload `json:"payload"`
+		}
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return err
+		}
+		if msg.Type != TaskImportRun {
+			return nil
+		}
+		return runner(ctx, msg.Payload.ImporterID)
 	}
 }
 
@@ -170,14 +187,13 @@ func NoopEmailSender(log *slog.Logger) func(ctx context.Context, to, subject, bo
 	}
 }
 
-// NoopWebhookDeliverer is a no-op deliverer (log only). Replace with real HTTP POST in production.
-func NoopWebhookDeliverer(log *slog.Logger) func(ctx context.Context, url, secret, event string, payload map[string]interface{}) error {
-	return func(ctx context.Context, url, secret, event string, payload map[string]interface{}) error {
+// NoopWebhookDeliverer is a no-op deliverer (log only). Used as a fallback when
+// no real deliverer is wired.
+func NoopWebhookDeliverer(log *slog.Logger) func(ctx context.Context, p WebhookPayload) error {
+	return func(ctx context.Context, p WebhookPayload) error {
 		if log != nil {
-			log.Info("webhook would be delivered", "url", url, "event", event)
+			log.Info("webhook would be delivered", "url", p.URL, "event", p.Event)
 		}
-		_ = secret
-		_ = payload
 		return nil
 	}
 }

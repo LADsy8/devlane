@@ -372,6 +372,66 @@ func (h *ProjectHandler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// Archive archives a project (hides it from active lists; not deleted).
+// POST /api/workspaces/:slug/projects/:projectId/archive/
+func (h *ProjectHandler) Archive(c *gin.Context) {
+	h.setArchived(c, true)
+}
+
+// Restore un-archives a project.
+// DELETE /api/workspaces/:slug/projects/:projectId/archive/
+func (h *ProjectHandler) Restore(c *gin.Context) {
+	h.setArchived(c, false)
+}
+
+func (h *ProjectHandler) setArchived(c *gin.Context, archived bool) {
+	user := middleware.GetUser(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	slug := c.Param("slug")
+	pid, ok := projectID(c)
+	if !ok {
+		return
+	}
+	var err error
+	if archived {
+		err = h.Project.Archive(c.Request.Context(), slug, pid, user.ID)
+	} else {
+		err = h.Project.Restore(c.Request.Context(), slug, pid, user.ID)
+	}
+	if err != nil {
+		if err == service.ErrProjectNotFound || err == service.ErrProjectForbidden {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update project"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// ListArchived returns the workspace's archived projects.
+// GET /api/workspaces/:slug/archived-projects/
+func (h *ProjectHandler) ListArchived(c *gin.Context) {
+	user := middleware.GetUser(c)
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	list, err := h.Project.ListArchived(c.Request.Context(), c.Param("slug"), user.ID)
+	if err != nil {
+		if err == service.ErrProjectNotFound || err == service.ErrProjectForbidden {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Workspace not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list archived projects"})
+		return
+	}
+	c.JSON(http.StatusOK, list)
+}
+
 // ListMembers returns project members.
 // GET /api/workspaces/:slug/projects/:projectId/members/
 func (h *ProjectHandler) ListMembers(c *gin.Context) {

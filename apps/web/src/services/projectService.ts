@@ -82,6 +82,28 @@ export const projectService = {
     return data;
   },
 
+  /** List the workspace's archived projects. */
+  async listArchived(workspaceSlug: string): Promise<ProjectApiResponse[]> {
+    const { data } = await apiClient.get<ProjectApiResponse[]>(
+      `/api/workspaces/${encodeURIComponent(workspaceSlug)}/archived-projects/`,
+    );
+    return Array.isArray(data) ? data : [];
+  },
+
+  /** Archive a project (hides it from active lists; not deleted). */
+  async archive(workspaceSlug: string, projectId: string): Promise<void> {
+    await apiClient.post(
+      `/api/workspaces/${encodeURIComponent(workspaceSlug)}/projects/${encodeURIComponent(projectId)}/archive/`,
+    );
+  },
+
+  /** Restore an archived project. */
+  async restore(workspaceSlug: string, projectId: string): Promise<void> {
+    await apiClient.delete(
+      `/api/workspaces/${encodeURIComponent(workspaceSlug)}/projects/${encodeURIComponent(projectId)}/archive/`,
+    );
+  },
+
   async listMembers(workspaceSlug: string, projectId: string): Promise<ProjectMemberApiResponse[]> {
     const { data } = await apiClient.get<ProjectMemberApiResponse[]>(
       `/api/workspaces/${encodeURIComponent(workspaceSlug)}/projects/${encodeURIComponent(projectId)}/members/`,

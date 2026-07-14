@@ -28,6 +28,10 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "admin" {
 		os.Exit(runAdmin(os.Args[2:]))
 	}
+	// Local development: `api seed` populates a demo workspace/project/issues.
+	if len(os.Args) > 1 && os.Args[1] == "seed" {
+		os.Exit(runSeed(os.Args[2:]))
+	}
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -95,7 +99,7 @@ func main() {
 		mc = client
 	}
 
-	r := router.New(router.Config{
+	r, importerSvc := router.New(router.Config{
 		Log:               log,
 		DB:                db,
 		Redis:             rdb,
@@ -118,8 +122,10 @@ func main() {
 			instanceSettingStore := store.NewInstanceSettingStore(db)
 			emailSender := mail.NewSMTPEmailSender(instanceSettingStore, log)
 			consumer.Register(queue.QueueEmails, queue.HandleSendEmail(log, emailSender))
-			consumer.Register(queue.QueueWebhooks, queue.HandleWebhook(queue.NoopWebhookDeliverer(log)))
-			if err := consumer.Run(consumerCtx, []string{queue.QueueEmails, queue.QueueWebhooks}); err != nil {
+			webhookDeliverer := service.NewWebhookDeliverer(store.NewWebhookStore(db), log)
+			consumer.Register(queue.QueueWebhooks, queue.HandleWebhook(webhookDeliverer))
+			consumer.Register(queue.QueueImports, queue.HandleImport(importerSvc.Run))
+			if err := consumer.Run(consumerCtx, []string{queue.QueueEmails, queue.QueueWebhooks, queue.QueueImports}); err != nil {
 				log.Warn("queue consumer", "error", err)
 			}
 		}

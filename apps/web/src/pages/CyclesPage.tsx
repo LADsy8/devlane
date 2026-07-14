@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Avatar, Badge, Button, Modal } from '../components/ui';
 import { UpdateCycleModal } from '../components/UpdateCycleModal';
@@ -27,7 +28,7 @@ import {
   PROJECT_CYCLES_FILTER_EVENT,
   PROJECT_CYCLES_REFRESH_EVENT,
 } from '../lib/projectCyclesEvents';
-import { useCycleFavorites } from '../hooks/useCycleFavorites';
+import { useWorkspaceFavorites } from '../hooks/useWorkspaceFavorites';
 import { parseISODateForDisplay, parseISODateLocal } from '../lib/dateOnly';
 import { cyclePathSegment } from '../lib/cycle';
 import { cn, getImageUrl } from '../lib/utils';
@@ -306,6 +307,7 @@ const IconUsers = () => (
 );
 
 export function CyclesPage() {
+  const { t } = useTranslation();
   const { workspaceSlug, projectId } = useParams<{
     workspaceSlug: string;
     projectId: string;
@@ -334,7 +336,17 @@ export function CyclesPage() {
   const [deleteCycleId, setDeleteCycleId] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const { toggleFavorite, isFavorite } = useCycleFavorites(workspaceSlug, projectId);
+  const { isFavorited, toggleEntity } = useWorkspaceFavorites(workspaceSlug);
+  const isFavorite = (id: string) => isFavorited('cycle', id);
+  const toggleFavorite = (cycle: { id: string; name: string }) => {
+    if (!projectId) return;
+    void toggleEntity({
+      entity_type: 'cycle',
+      entity_id: cycle.id,
+      project_id: projectId,
+      name: cycle.name,
+    });
+  };
 
   const [filters, setFilters] = useState<CyclesFiltersState>({
     searchQuery: null,
@@ -346,7 +358,7 @@ export function CyclesPage() {
     dueAfter: null,
     dueBefore: null,
   });
-  useDocumentTitle('Cycles');
+  useDocumentTitle(t('cycles.documentTitle', 'Cycles'));
 
   useEffect(() => {
     if (!workspaceSlug || !projectId) {
@@ -495,8 +507,8 @@ export function CyclesPage() {
     };
 
     const inRange = (date: Date, rangeStartMs: number, rangeEndMs: number) => {
-      const t = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-      return t >= rangeStartMs && t <= rangeEndMs;
+      const ts = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+      return ts >= rangeStartMs && ts <= rangeEndMs;
     };
 
     const matchesPresetUnion = (
@@ -754,12 +766,16 @@ export function CyclesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8 text-sm text-(--txt-tertiary)">
-        Loading…
+        {t('common.loading', 'Loading…')}
       </div>
     );
   }
   if (!workspace || !project) {
-    return <div className="text-(--txt-secondary)">Project not found.</div>;
+    return (
+      <div className="text-(--txt-secondary)">
+        {t('common.projectNotFound', 'Project not found.')}
+      </div>
+    );
   }
 
   const renderCycleRow = (c: CycleApiResponse) => {
@@ -797,7 +813,7 @@ export function CyclesPage() {
         </span>
         <span className="flex shrink-0 items-center gap-1.5 text-[13px] text-(--txt-secondary)">
           <IconCalendar />
-          {dateRange ?? 'No dates'}
+          {dateRange ?? t('cycles.noDates', 'No dates')}
         </span>
         {owner ? (
           <Avatar
@@ -817,11 +833,15 @@ export function CyclesPage() {
         <button
           type="button"
           className="flex size-8 shrink-0 items-center justify-center rounded text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-          aria-label={isFavorite(c.id) ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={
+            isFavorite(c.id)
+              ? t('common.removeFromFavorites', 'Remove from favorites')
+              : t('common.addToFavorites', 'Add to favorites')
+          }
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            void toggleFavorite(c.id);
+            void toggleFavorite(c);
           }}
         >
           {isFavorite(c.id) ? (
@@ -836,7 +856,7 @@ export function CyclesPage() {
           <button
             type="button"
             className="flex size-8 items-center justify-center rounded text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-            aria-label="More options"
+            aria-label={t('common.moreOptions', 'More options')}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -857,7 +877,7 @@ export function CyclesPage() {
                   setEditCycle(c);
                 }}
               >
-                Edit
+                {t('common.edit', 'Edit')}
               </button>
               <button
                 type="button"
@@ -869,7 +889,7 @@ export function CyclesPage() {
                   setEllipsisMenuOpenId(null);
                 }}
               >
-                Open in new tab
+                {t('common.openInNewTab', 'Open in new tab')}
               </button>
               <button
                 type="button"
@@ -885,7 +905,7 @@ export function CyclesPage() {
                   setEllipsisMenuOpenId(null);
                 }}
               >
-                Copy link
+                {t('common.copyLink', 'Copy link')}
               </button>
               <div className="my-1 border-t border-(--border-subtle)" />
               <button
@@ -893,9 +913,9 @@ export function CyclesPage() {
                 disabled={!canArchive}
                 className="flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm text-(--txt-tertiary) disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <span>Archive</span>
+                <span>{t('common.archive', 'Archive')}</span>
                 <span className="text-[11px] leading-tight">
-                  Only completed cycles can be archived.
+                  {t('cycles.onlyCompletedArchivable', 'Only completed cycles can be archived.')}
                 </span>
               </button>
               <button
@@ -908,7 +928,7 @@ export function CyclesPage() {
                   setDeleteCycleId(c.id);
                 }}
               >
-                Delete
+                {t('common.delete', 'Delete')}
               </button>
             </div>
           )}
@@ -936,7 +956,9 @@ export function CyclesPage() {
           className="flex w-full min-h-[44px] items-center gap-2 bg-(--bg-layer-1-hover) px-4 py-2.5 text-left text-sm font-medium text-(--txt-primary) hover:bg-(--bg-layer-1-hover)"
         >
           <IconCycle />
-          {activeCycles.length === 1 ? 'Active cycle' : 'Active cycles'}
+          {activeCycles.length === 1
+            ? t('cycles.activeCycle', 'Active cycle')
+            : t('cycles.activeCycles', 'Active cycles')}
           <span className="ml-auto flex size-4 shrink-0 items-center justify-center text-(--txt-icon-tertiary)">
             {activeCycleExpanded ? <IconChevronUp /> : <IconChevronDown />}
           </span>
@@ -954,10 +976,10 @@ export function CyclesPage() {
                 className="flex items-center gap-1.5 text-sm text-(--txt-secondary) hover:text-(--txt-primary)"
               >
                 <IconEye />
-                More details
+                {t('cycles.moreDetails', 'More details')}
               </Link>
               <span className="text-[13px] text-(--txt-secondary)">
-                {formatCycleDateRange(activeCycle) ?? 'No dates'}
+                {formatCycleDateRange(activeCycle) ?? t('cycles.noDates', 'No dates')}
               </span>
               <span className="text-[13px] text-(--txt-tertiary)">
                 {project?.timezone ?? 'UTC'}
@@ -981,9 +1003,11 @@ export function CyclesPage() {
                 type="button"
                 className="flex size-8 shrink-0 items-center justify-center rounded text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
                 aria-label={
-                  isFavorite(activeCycle.id) ? 'Remove from favorites' : 'Add to favorites'
+                  isFavorite(activeCycle.id)
+                    ? t('common.removeFromFavorites', 'Remove from favorites')
+                    : t('common.addToFavorites', 'Add to favorites')
                 }
-                onClick={() => void toggleFavorite(activeCycle.id)}
+                onClick={() => void toggleFavorite(activeCycle)}
               >
                 {isFavorite(activeCycle.id) ? (
                   <span className="text-amber-500">
@@ -997,7 +1021,7 @@ export function CyclesPage() {
                 <button
                   type="button"
                   className="flex size-8 items-center justify-center rounded text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-                  aria-label="More options"
+                  aria-label={t('common.moreOptions', 'More options')}
                   onClick={() =>
                     setEllipsisMenuOpenId((cur) => (cur === activeCycle.id ? null : activeCycle.id))
                   }
@@ -1014,7 +1038,7 @@ export function CyclesPage() {
                         setEditCycle(activeCycle);
                       }}
                     >
-                      Edit
+                      {t('common.edit', 'Edit')}
                     </button>
                     <button
                       type="button"
@@ -1024,7 +1048,7 @@ export function CyclesPage() {
                         setEllipsisMenuOpenId(null);
                       }}
                     >
-                      Open in new tab
+                      {t('common.openInNewTab', 'Open in new tab')}
                     </button>
                     <button
                       type="button"
@@ -1040,7 +1064,7 @@ export function CyclesPage() {
                         setEllipsisMenuOpenId(null);
                       }}
                     >
-                      Copy link
+                      {t('common.copyLink', 'Copy link')}
                     </button>
                     <div className="my-1 border-t border-(--border-subtle)" />
                     <button
@@ -1048,9 +1072,12 @@ export function CyclesPage() {
                       disabled={activeCycle.status !== 'completed'}
                       className="flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm text-(--txt-tertiary) disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <span>Archive</span>
+                      <span>{t('common.archive', 'Archive')}</span>
                       <span className="text-[11px] leading-tight">
-                        Only completed cycles can be archived.
+                        {t(
+                          'cycles.onlyCompletedArchivable',
+                          'Only completed cycles can be archived.',
+                        )}
                       </span>
                     </button>
                     <button
@@ -1061,7 +1088,7 @@ export function CyclesPage() {
                         setDeleteCycleId(activeCycle.id);
                       }}
                     >
-                      Delete
+                      {t('common.delete', 'Delete')}
                     </button>
                   </div>
                 )}
@@ -1073,10 +1100,18 @@ export function CyclesPage() {
               {/* Progress card */}
               <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) p-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-(--txt-primary)">Progress</h3>
+                  <h3 className="text-sm font-medium text-(--txt-primary)">
+                    {t('cycles.progress.title', 'Progress')}
+                  </h3>
                   <span className="text-xs text-(--txt-tertiary)">
-                    {activeCycleProgressStats.completed}/{activeCycleProgressStats.total} Work item
-                    closed
+                    {t(
+                      'cycles.progress.workItemClosed',
+                      '{{completed}}/{{total}} Work item closed',
+                      {
+                        completed: activeCycleProgressStats.completed,
+                        total: activeCycleProgressStats.total,
+                      },
+                    )}
                   </span>
                 </div>
                 {activeCycleProgressStats.total > 0 ? (
@@ -1113,22 +1148,32 @@ export function CyclesPage() {
                       {activeCycleProgressStats.started > 0 && (
                         <li className="flex items-center gap-2">
                           <span className="size-2 rounded-full bg-(--warning-default)" />
-                          Started {activeCycleProgressStats.started} Work item
-                          {activeCycleProgressStats.started !== 1 ? 's' : ''}
+                          {t('cycles.progress.started', 'Started {{count}} Work item{{plural}}', {
+                            count: activeCycleProgressStats.started,
+                            plural: activeCycleProgressStats.started !== 1 ? 's' : '',
+                          })}
                         </li>
                       )}
                       {activeCycleProgressStats.backlog > 0 && (
                         <li className="flex items-center gap-2">
                           <span className="size-2 rounded-full bg-(--border-subtle)" />
-                          Backlog {activeCycleProgressStats.backlog} Work item
-                          {activeCycleProgressStats.backlog !== 1 ? 's' : ''}
+                          {t('cycles.progress.backlog', 'Backlog {{count}} Work item{{plural}}', {
+                            count: activeCycleProgressStats.backlog,
+                            plural: activeCycleProgressStats.backlog !== 1 ? 's' : '',
+                          })}
                         </li>
                       )}
                       {activeCycleProgressStats.completed > 0 && (
                         <li className="flex items-center gap-2">
                           <span className="size-2 rounded-full bg-(--success-default)" />
-                          Completed {activeCycleProgressStats.completed} Work item
-                          {activeCycleProgressStats.completed !== 1 ? 's' : ''}
+                          {t(
+                            'cycles.progress.completed',
+                            'Completed {{count}} Work item{{plural}}',
+                            {
+                              count: activeCycleProgressStats.completed,
+                              plural: activeCycleProgressStats.completed !== 1 ? 's' : '',
+                            },
+                          )}
                         </li>
                       )}
                     </ul>
@@ -1137,7 +1182,10 @@ export function CyclesPage() {
                   <div className="mt-4 flex flex-col items-center justify-center py-6">
                     <IconTrendingUp />
                     <p className="mt-2 text-center text-sm text-(--txt-tertiary)">
-                      Add work items to the cycle to view its progress
+                      {t(
+                        'cycles.progress.empty',
+                        'Add work items to the cycle to view its progress',
+                      )}
                     </p>
                   </div>
                 )}
@@ -1146,10 +1194,13 @@ export function CyclesPage() {
               {/* Burndown card */}
               <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) p-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-(--txt-primary)">Work item burndown</h3>
+                  <h3 className="text-sm font-medium text-(--txt-primary)">
+                    {t('cycles.burndown.title', 'Work item burndown')}
+                  </h3>
                   <span className="text-xs text-(--txt-tertiary)">
-                    Pending work items -{' '}
-                    {activeCycleProgressStats.total - activeCycleProgressStats.completed}
+                    {t('cycles.burndown.pending', 'Pending work items - {{count}}', {
+                      count: activeCycleProgressStats.total - activeCycleProgressStats.completed,
+                    })}
                   </span>
                 </div>
                 {activeCycleProgressStats.total > 0 ? (
@@ -1165,7 +1216,10 @@ export function CyclesPage() {
                   <div className="mt-4 flex flex-col items-center justify-center py-6">
                     <IconActivity />
                     <p className="mt-2 text-center text-sm text-(--txt-tertiary)">
-                      Add work items to the cycle to view the burndown chart.
+                      {t(
+                        'cycles.burndown.empty',
+                        'Add work items to the cycle to view the burndown chart.',
+                      )}
                     </p>
                   </div>
                 )}
@@ -1186,9 +1240,9 @@ export function CyclesPage() {
                           : 'text-(--txt-tertiary) hover:text-(--txt-secondary)',
                       )}
                     >
-                      {tab === 'priority' && 'Priority work items'}
-                      {tab === 'assignees' && 'Assignees'}
-                      {tab === 'labels' && 'Labels'}
+                      {tab === 'priority' && t('cycles.tabs.priority', 'Priority work items')}
+                      {tab === 'assignees' && t('cycles.tabs.assignees', 'Assignees')}
+                      {tab === 'labels' && t('cycles.tabs.labels', 'Labels')}
                     </button>
                   ))}
                 </div>
@@ -1199,7 +1253,10 @@ export function CyclesPage() {
                         <div className="flex flex-col items-center justify-center py-6">
                           <IconBarChart />
                           <p className="mt-2 text-center text-sm text-(--txt-tertiary)">
-                            Add work items to view priority breakdown.
+                            {t(
+                              'cycles.tabs.priorityEmpty',
+                              'Add work items to view priority breakdown.',
+                            )}
                           </p>
                         </div>
                       ) : (
@@ -1254,7 +1311,7 @@ export function CyclesPage() {
                         <div className="flex flex-col items-center justify-center py-6">
                           <IconUsers />
                           <p className="mt-2 text-center text-sm text-(--txt-tertiary)">
-                            No assignees in this cycle.
+                            {t('cycles.tabs.assigneesEmpty', 'No assignees in this cycle.')}
                           </p>
                         </div>
                       ) : (
@@ -1266,7 +1323,9 @@ export function CyclesPage() {
                             const name =
                               member?.member_display_name?.trim() ??
                               member?.member_email?.split('@')[0] ??
-                              (s.memberId ? s.memberId.slice(0, 8) : 'Unassigned');
+                              (s.memberId
+                                ? s.memberId.slice(0, 8)
+                                : t('cycles.unassigned', 'Unassigned'));
                             return (
                               <li
                                 key={s.memberId ?? '__unassigned__'}
@@ -1290,7 +1349,10 @@ export function CyclesPage() {
                                   </span>
                                 </div>
                                 <span className="shrink-0 text-[13px] text-(--txt-secondary)">
-                                  {s.percent}% of {s.total}
+                                  {t('cycles.percentOf', '{{percent}}% of {{total}}', {
+                                    percent: s.percent,
+                                    total: s.total,
+                                  })}
                                 </span>
                               </li>
                             );
@@ -1305,14 +1367,18 @@ export function CyclesPage() {
                         <div className="flex flex-col items-center justify-center py-6">
                           <IconBarChart />
                           <p className="mt-2 text-center text-sm text-(--txt-tertiary)">
-                            No labels in this cycle.
+                            {t('cycles.tabs.labelsEmpty', 'No labels in this cycle.')}
                           </p>
                         </div>
                       ) : (
                         <ul className="space-y-2">
                           {activeCycleLabelStats.map((s) => {
                             const label = s.labelId ? labels.find((l) => l.id === s.labelId) : null;
-                            const name = label?.name ?? (s.labelId ? 'Unknown' : 'No labels');
+                            const name =
+                              label?.name ??
+                              (s.labelId
+                                ? t('cycles.unknownLabel', 'Unknown')
+                                : t('cycles.noLabels', 'No labels'));
                             const color = label?.color ?? '#6b7280';
                             return (
                               <li
@@ -1329,7 +1395,10 @@ export function CyclesPage() {
                                   </span>
                                 </div>
                                 <span className="shrink-0 text-[13px] text-(--txt-secondary)">
-                                  {s.percent}% of {s.total}
+                                  {t('cycles.percentOf', '{{percent}}% of {{total}}', {
+                                    percent: s.percent,
+                                    total: s.total,
+                                  })}
                                 </span>
                               </li>
                             );
@@ -1344,7 +1413,7 @@ export function CyclesPage() {
             {activeCycles.length > 1 && (
               <div className="border-t border-(--border-subtle) px-4 py-3">
                 <p className="mb-2 text-[13px] font-medium text-(--txt-secondary)">
-                  Also in progress:
+                  {t('cycles.alsoInProgress', 'Also in progress:')}
                 </p>
                 <ul className="space-y-1.5">
                   {activeCycles.slice(1).map((c) => (
@@ -1355,7 +1424,7 @@ export function CyclesPage() {
                       >
                         <span>{c.name}</span>
                         <span className="text-[12px] text-(--txt-tertiary)">
-                          {formatCycleDateRange(c) ?? 'No dates'}
+                          {formatCycleDateRange(c) ?? t('cycles.noDates', 'No dates')}
                         </span>
                       </Link>
                     </li>
@@ -1375,13 +1444,15 @@ export function CyclesPage() {
           className="flex min-h-[44px] w-full items-center gap-2 bg-(--bg-layer-1-hover) px-4 py-2.5 text-left text-sm font-medium text-(--txt-primary) hover:bg-(--bg-layer-1-hover)"
         >
           <span className="flex h-2 w-2 rounded-full border-2 border-dashed border-(--brand-default) bg-transparent" />
-          Upcoming cycle {upcomingCycles.length}
+          {t('cycles.upcomingCycle', 'Upcoming cycle {{count}}', { count: upcomingCycles.length })}
           <span className="ml-auto">{upcomingOpen ? <IconChevronUp /> : <IconChevronDown />}</span>
         </button>
         {upcomingOpen && (
           <div>
             {upcomingCycles.length === 0 ? (
-              <p className="py-4 pl-4 text-sm text-(--txt-tertiary)">No upcoming cycles.</p>
+              <p className="py-4 pl-4 text-sm text-(--txt-tertiary)">
+                {t('cycles.noUpcoming', 'No upcoming cycles.')}
+              </p>
             ) : (
               upcomingCycles.map((c) => renderCycleRow(c))
             )}
@@ -1397,13 +1468,17 @@ export function CyclesPage() {
           className="flex min-h-[44px] w-full items-center gap-2 bg-(--bg-layer-1-hover) px-4 py-2.5 text-left text-sm font-medium text-(--txt-primary) hover:bg-(--bg-layer-1-hover)"
         >
           <span className="flex h-2 w-2 rounded-full bg-(--success-default)" />
-          Completed cycle {completedCycles.length}
+          {t('cycles.completedCycle', 'Completed cycle {{count}}', {
+            count: completedCycles.length,
+          })}
           <span className="ml-auto">{completedOpen ? <IconChevronUp /> : <IconChevronDown />}</span>
         </button>
         {completedOpen && (
           <div>
             {completedCycles.length === 0 ? (
-              <p className="py-4 pl-4 text-sm text-(--txt-tertiary)">No completed cycles.</p>
+              <p className="py-4 pl-4 text-sm text-(--txt-tertiary)">
+                {t('cycles.noCompleted', 'No completed cycles.')}
+              </p>
             ) : (
               completedCycles.map((c) => renderCycleRow(c))
             )}
@@ -1429,7 +1504,9 @@ export function CyclesPage() {
 
       <DeleteCycleConfirm
         open={!!deleteCycleId}
-        cycleName={cycles.find((c) => c.id === deleteCycleId)?.name ?? 'Cycle'}
+        cycleName={
+          cycles.find((c) => c.id === deleteCycleId)?.name ?? t('cycles.cycleFallbackName', 'Cycle')
+        }
         onClose={() => setDeleteCycleId(null)}
         onConfirm={async () => {
           if (!workspaceSlug || !projectId || !deleteCycleId) return;
@@ -1462,17 +1539,18 @@ function DeleteCycleConfirm({
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [deleting, setDeleting] = useState(false);
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={`Delete "${cycleName}"?`}
+      title={t('cycles.deleteConfirmTitle', 'Delete "{{name}}"?', { name: cycleName })}
       className="max-w-sm"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={deleting}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button
             variant="danger"
@@ -1483,12 +1561,14 @@ function DeleteCycleConfirm({
             }}
             disabled={deleting}
           >
-            {deleting ? 'Deleting…' : 'Delete'}
+            {deleting ? t('common.deleting', 'Deleting…') : t('common.delete', 'Delete')}
           </Button>
         </>
       }
     >
-      <p className="text-sm text-(--txt-secondary)">This cannot be undone.</p>
+      <p className="text-sm text-(--txt-secondary)">
+        {t('cycles.deleteCannotUndo', 'This cannot be undone.')}
+      </p>
     </Modal>
   );
 }

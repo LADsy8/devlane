@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Settings2 } from 'lucide-react';
 import { Skeleton } from '../../components/ui';
@@ -34,10 +35,11 @@ function isGitHubAppConfigured(s: InstanceGitHubAppSection): boolean {
 }
 
 export function InstanceAdminIntegrationsPage() {
+  const { t } = useTranslation();
   const [github, setGithub] = useState<InstanceGitHubAppSection>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  useDocumentTitle('Integrations');
+  useDocumentTitle(t('instanceAdmin.integrations.documentTitle', 'Integrations'));
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +65,10 @@ export function InstanceAdminIntegrationsPage() {
     {
       id: 'github',
       name: 'GitHub',
-      desc: 'Two-way sync between GitHub pull requests and Devlane issues, plus PR ↔ issue auto-linking via branch names and commit messages.',
+      desc: t(
+        'instanceAdmin.integrations.github.desc',
+        'Two-way sync between GitHub pull requests and Devlane issues, plus PR ↔ issue auto-linking via branch names and commit messages.',
+      ),
       Icon: IconGitHub,
       editPath: '/instance-admin/integrations/github',
       configured: isGitHubAppConfigured(github),
@@ -102,11 +107,13 @@ export function InstanceAdminIntegrationsPage() {
     <div className="w-full max-w-3xl space-y-6">
       <div>
         <h1 className="text-base font-semibold text-(--txt-primary)">
-          Integrations available on this instance
+          {t('instanceAdmin.integrations.title', 'Integrations available on this instance')}
         </h1>
         <p className="mt-0.5 text-xs text-(--txt-secondary)">
-          Configure third-party app credentials. Once an integration is configured here, workspace
-          admins can connect it from their workspace settings.
+          {t(
+            'instanceAdmin.integrations.subtitle',
+            'Configure third-party app credentials. Once an integration is configured here, workspace admins can connect it from their workspace settings.',
+          )}
         </p>
       </div>
 
@@ -114,7 +121,7 @@ export function InstanceAdminIntegrationsPage() {
 
       <section>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-(--txt-secondary)">
-          Source control
+          {t('instanceAdmin.integrations.sourceControl', 'Source control')}
         </h2>
         <ul className="space-y-2">
           {providers.map((p) => {
@@ -133,11 +140,11 @@ export function InstanceAdminIntegrationsPage() {
                       <p className="text-sm font-medium text-(--txt-primary)">{p.name}</p>
                       {p.configured ? (
                         <span className="rounded bg-(--bg-success-subtle) px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-(--txt-success-primary)">
-                          Configured
+                          {t('instanceAdmin.integrations.configured', 'Configured')}
                         </span>
                       ) : (
                         <span className="rounded bg-(--bg-layer-1) px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-(--txt-tertiary)">
-                          Not configured
+                          {t('instanceAdmin.integrations.notConfigured', 'Not configured')}
                         </span>
                       )}
                     </div>
@@ -153,11 +160,11 @@ export function InstanceAdminIntegrationsPage() {
                   }
                 >
                   {p.configured ? (
-                    'Edit'
+                    t('common.edit', 'Edit')
                   ) : (
                     <>
                       <Settings2 className="size-3.5" aria-hidden />
-                      Configure
+                      {t('common.configure', 'Configure')}
                     </>
                   )}
                 </Link>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { PriorityIcon } from '../IssueRowCells';
@@ -28,6 +29,7 @@ export function IssueLayoutCalendar({
   projectsById,
   onUpdateIssue,
 }: IssueLayoutProps) {
+  const { t } = useTranslation();
   const [viewDate, setViewDate] = useState(() => startOfDay(new Date(now)));
   const [mode, setMode] = useState<CalendarMode>('month');
   const [showWeekends, setShowWeekends] = useState(true);
@@ -92,7 +94,11 @@ export function IssueLayoutCalendar({
           type="button"
           onClick={() => moveView(-1)}
           className="inline-flex h-7 w-7 items-center justify-center rounded-(--radius-md) text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-          aria-label={mode === 'month' ? 'Previous month' : 'Previous week'}
+          aria-label={
+            mode === 'month'
+              ? t('workItem.calendar.prevMonth', 'Previous month')
+              : t('workItem.calendar.prevWeek', 'Previous week')
+          }
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -100,7 +106,11 @@ export function IssueLayoutCalendar({
           type="button"
           onClick={() => moveView(1)}
           className="inline-flex h-7 w-7 items-center justify-center rounded-(--radius-md) text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-          aria-label={mode === 'month' ? 'Next month' : 'Next week'}
+          aria-label={
+            mode === 'month'
+              ? t('workItem.calendar.nextMonth', 'Next month')
+              : t('workItem.calendar.nextWeek', 'Next week')
+          }
         >
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -112,7 +122,7 @@ export function IssueLayoutCalendar({
           className="ml-2 rounded-(--radius-md) border border-(--border-subtle) px-2 py-0.5 text-[11px] text-(--txt-secondary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-primary)"
           onClick={() => setViewDate(startOfDay(new Date(now)))}
         >
-          Today
+          {t('common.today', 'Today')}
         </button>
         <div className="ml-auto flex items-center gap-2">
           <div className="inline-flex overflow-hidden rounded-(--radius-md) border border-(--border-subtle)">
@@ -127,7 +137,9 @@ export function IssueLayoutCalendar({
                 }`}
                 onClick={() => setMode(nextMode)}
               >
-                {nextMode}
+                {nextMode === 'month'
+                  ? t('workItem.calendar.month', 'month')
+                  : t('workItem.calendar.week', 'week')}
               </button>
             ))}
           </div>
@@ -138,7 +150,7 @@ export function IssueLayoutCalendar({
               checked={showWeekends}
               onChange={(event) => setShowWeekends(event.target.checked)}
             />
-            Weekends
+            {t('workItem.calendar.weekends', 'Weekends')}
           </label>
         </div>
       </div>
@@ -219,7 +231,9 @@ export function IssueLayoutCalendar({
                   />
                 ))}
                 {overflow > 0 && (
-                  <p className="px-1 text-[10px] text-(--txt-tertiary)">+{overflow} more</p>
+                  <p className="px-1 text-[10px] text-(--txt-tertiary)">
+                    {t('workItem.calendar.moreCount', '+{{count}} more', { count: overflow })}
+                  </p>
                 )}
               </div>
             </div>
@@ -230,7 +244,9 @@ export function IssueLayoutCalendar({
       {issuesByDate.undated.length > 0 && (
         <details className="rounded-(--radius-md) border border-(--border-subtle) bg-(--bg-surface-1)">
           <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-(--txt-secondary)">
-            No due date - {issuesByDate.undated.length}
+            {t('workItem.calendar.noDueDate', 'No due date - {{count}}', {
+              count: issuesByDate.undated.length,
+            })}
           </summary>
           <ul className="divide-y divide-(--border-subtle) border-t border-(--border-subtle)">
             {issuesByDate.undated.map((issue) => (

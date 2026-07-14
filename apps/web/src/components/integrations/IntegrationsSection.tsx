@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Settings2 } from 'lucide-react';
 import { Button, Card, CardContent, Badge, Modal } from '../ui';
@@ -32,6 +33,7 @@ interface IntegrationsSectionProps {
  *     and lets the user link/unlink a repo via a modal.
  */
 export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSectionProps) {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [installed, setInstalled] = useState<WorkspaceIntegrationApiResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +70,7 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
     const connected = searchParams.get('connected');
     const errParam = searchParams.get('error');
     if (connected === 'github') {
-      setSuccess('GitHub connected.');
+      setSuccess(t('integrations.github.connected', 'GitHub connected.'));
       const next = new URLSearchParams(searchParams);
       next.delete('connected');
       setSearchParams(next, { replace: true });
@@ -132,14 +134,22 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
   };
 
   const handleDisconnect = async () => {
-    if (!confirm('Disconnect GitHub from this workspace? Linked repos will be unlinked.')) return;
+    if (
+      !confirm(
+        t(
+          'integrations.github.disconnectConfirm',
+          'Disconnect GitHub from this workspace? Linked repos will be unlinked.',
+        ),
+      )
+    )
+      return;
     setDisconnecting(true);
     setError('');
     try {
       await integrationService.uninstall(workspaceSlug, 'github');
       setInstalled([]);
       setProjectSyncs({});
-      setSuccess('GitHub disconnected.');
+      setSuccess(t('integrations.github.disconnected', 'GitHub disconnected.'));
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
@@ -196,7 +206,7 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
       setProjectSyncs((prev) => ({ ...prev, [linkingProjectId]: res }));
       setLinkModalOpen(false);
       setLinkingProjectId(null);
-      setSuccess(`Linked ${repo.full_name}.`);
+      setSuccess(t('integrations.github.linked', 'Linked {{name}}.', { name: repo.full_name }));
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
@@ -205,7 +215,12 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
   };
 
   const handleUnlink = async (projectId: string) => {
-    if (!confirm('Unlink GitHub repository from this project?')) return;
+    if (
+      !confirm(
+        t('integrations.github.unlinkConfirm', 'Unlink GitHub repository from this project?'),
+      )
+    )
+      return;
     setError('');
     try {
       await integrationService.githubUnlinkProjectRepo(workspaceSlug, projectId);
@@ -218,9 +233,14 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-semibold text-(--txt-primary)">Integrations</h2>
+        <h2 className="text-base font-semibold text-(--txt-primary)">
+          {t('integrations.title', 'Integrations')}
+        </h2>
         <p className="mt-1 text-sm text-(--txt-secondary)">
-          Connect Devlane with the tools your team already uses to keep work in sync.
+          {t(
+            'integrations.description',
+            'Connect Devlane with the tools your team already uses to keep work in sync.',
+          )}
         </p>
       </div>
 
@@ -237,7 +257,7 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
 
       <div>
         <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wider text-(--txt-tertiary)">
-          Source control
+          {t('integrations.sourceControl', 'Source control')}
         </p>
         <Card variant="outlined">
           <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
@@ -249,25 +269,52 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-sm font-semibold text-(--txt-primary)">GitHub</h3>
                   {isConnected ? (
-                    <Badge variant="success">Connected</Badge>
+                    <Badge variant="success">
+                      {t('integrations.status.connected', 'Connected')}
+                    </Badge>
                   ) : (
-                    <Badge variant="neutral">Available</Badge>
+                    <Badge variant="neutral">
+                      {t('integrations.status.available', 'Available')}
+                    </Badge>
                   )}
                   {github?.account_login && (
                     <span className="text-xs text-(--txt-tertiary)">@{github.account_login}</span>
                   )}
-                  {github?.suspended_at && <Badge variant="warning">Suspended</Badge>}
+                  {github?.suspended_at && (
+                    <Badge variant="warning">
+                      {t('integrations.status.suspended', 'Suspended')}
+                    </Badge>
+                  )}
                 </div>
                 <p className="mt-1 text-sm text-(--txt-secondary)">
-                  Two-way sync between GitHub pull requests and Devlane issues. Reference issues
-                  from PRs and branches to keep status in lock-step, and see review state from the
-                  issue sidebar.
+                  {t(
+                    'integrations.github.description',
+                    'Two-way sync between GitHub pull requests and Devlane issues. Reference issues from PRs and branches to keep status in lock-step, and see review state from the issue sidebar.',
+                  )}
                 </p>
                 {!isConnected && (
                   <ul className="mt-3 space-y-1 text-sm text-(--txt-tertiary)">
-                    <li>• Auto-link PRs to issues using branch names and commit messages</li>
-                    <li>• Mirror PR status (draft, open, merged, closed) onto issue activity</li>
-                    <li>• Move issues across states based on PR events</li>
+                    <li>
+                      •{' '}
+                      {t(
+                        'integrations.github.feature.autoLink',
+                        'Auto-link PRs to issues using branch names and commit messages',
+                      )}
+                    </li>
+                    <li>
+                      •{' '}
+                      {t(
+                        'integrations.github.feature.mirrorStatus',
+                        'Mirror PR status (draft, open, merged, closed) onto issue activity',
+                      )}
+                    </li>
+                    <li>
+                      •{' '}
+                      {t(
+                        'integrations.github.feature.moveIssues',
+                        'Move issues across states based on PR events',
+                      )}
+                    </li>
                   </ul>
                 )}
               </div>
@@ -275,14 +322,18 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
             <div className="shrink-0">
               {loading ? (
                 <Button variant="secondary" disabled>
-                  Loading…
+                  {t('common.loading', 'Loading…')}
                 </Button>
               ) : isConnected ? (
                 <Button variant="secondary" disabled={disconnecting} onClick={handleDisconnect}>
-                  {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+                  {disconnecting
+                    ? t('integrations.github.disconnecting', 'Disconnecting…')
+                    : t('integrations.github.disconnect', 'Disconnect')}
                 </Button>
               ) : (
-                <Button onClick={handleConnect}>Connect</Button>
+                <Button onClick={handleConnect}>
+                  {t('integrations.github.connect', 'Connect')}
+                </Button>
               )}
             </div>
           </CardContent>
@@ -292,7 +343,7 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
       {isConnected && projects.length > 0 && (
         <div>
           <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wider text-(--txt-tertiary)">
-            Linked repositories
+            {t('integrations.linkedRepositories', 'Linked repositories')}
           </p>
           <Card variant="outlined">
             <CardContent className="p-0">
@@ -323,7 +374,9 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
                             </a>
                           </p>
                         ) : (
-                          <p className="text-xs text-(--txt-tertiary)">No repository linked.</p>
+                          <p className="text-xs text-(--txt-tertiary)">
+                            {t('integrations.noRepoLinked', 'No repository linked.')}
+                          </p>
                         )}
                       </div>
                       {repo ? (
@@ -332,8 +385,12 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
                             type="button"
                             onClick={() => setSettingsOpenForProjectId(p.id)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-(--radius-md) text-(--txt-icon-tertiary) hover:bg-(--bg-layer-1-hover) hover:text-(--txt-icon-secondary)"
-                            aria-label={`Configure GitHub sync for ${p.name}`}
-                            title="Sync settings"
+                            aria-label={t(
+                              'integrations.configureSyncAria',
+                              'Configure GitHub sync for {{name}}',
+                              { name: p.name },
+                            )}
+                            title={t('integrations.syncSettings', 'Sync settings')}
                           >
                             <Settings2 className="h-4 w-4" />
                           </button>
@@ -342,7 +399,7 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
                             size="sm"
                             onClick={() => void handleUnlink(p.id)}
                           >
-                            Unlink
+                            {t('integrations.unlink', 'Unlink')}
                           </Button>
                         </div>
                       ) : (
@@ -351,7 +408,7 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
                           size="sm"
                           onClick={() => void openLinkModal(p.id)}
                         >
-                          Link repo
+                          {t('integrations.linkRepo', 'Link repo')}
                         </Button>
                       )}
                     </li>
@@ -371,11 +428,12 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
             setLinkingProjectId(null);
           }
         }}
-        title={`Link a GitHub repository to ${
-          linkingProjectId
-            ? (projects.find((p) => p.id === linkingProjectId)?.name ?? 'project')
-            : 'project'
-        }`}
+        title={t('integrations.linkModalTitle', 'Link a GitHub repository to {{name}}', {
+          name: linkingProjectId
+            ? (projects.find((p) => p.id === linkingProjectId)?.name ??
+              t('common.project', 'Project'))
+            : t('common.project', 'Project'),
+        })}
         footer={
           <Button
             variant="secondary"
@@ -386,20 +444,24 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
               }
             }}
           >
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
         }
       >
         <div className="space-y-3">
           <p className="text-sm text-(--txt-secondary)">
-            Pick a repository the GitHub App has access to. Pull requests targeting this project
-            will be linked to its issues.
+            {t(
+              'integrations.linkModalHint',
+              'Pick a repository the GitHub App has access to. Pull requests targeting this project will be linked to its issues.',
+            )}
           </p>
           <div className="max-h-80 overflow-y-auto rounded-(--radius-md) border border-(--border-subtle)">
             {repos.length === 0 && !reposLoading ? (
               <p className="px-3 py-4 text-sm text-(--txt-tertiary)">
-                No repositories accessible to the installation. Add this app to a repo on GitHub
-                first.
+                {t(
+                  'integrations.noReposAccessible',
+                  'No repositories accessible to the installation. Add this app to a repo on GitHub first.',
+                )}
               </p>
             ) : (
               <ul className="divide-y divide-(--border-subtle)">
@@ -419,7 +481,7 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
                       disabled={linking}
                       onClick={() => void handlePickRepo(r)}
                     >
-                      Link
+                      {t('integrations.link', 'Link')}
                     </Button>
                   </li>
                 ))}
@@ -428,7 +490,9 @@ export function IntegrationsSection({ workspaceSlug, projects }: IntegrationsSec
           </div>
           {reposHasMore && (
             <Button variant="ghost" onClick={() => void loadMoreRepos()} disabled={reposLoading}>
-              {reposLoading ? 'Loading…' : 'Load more'}
+              {reposLoading
+                ? t('common.loading', 'Loading…')
+                : t('integrations.loadMore', 'Load more')}
             </Button>
           )}
         </div>

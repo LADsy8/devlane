@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Calendar, GripVertical } from 'lucide-react';
 import { IssuePRBadge } from '../IssuePRBadge';
@@ -101,9 +102,23 @@ export function IssueLayoutSpreadsheet({
   moduleName,
   onUpdateIssue,
 }: IssueLayoutSpreadsheetProps) {
+  const { t } = useTranslation();
   const stateById = useMemo(() => new Map(states.map((s) => [s.id, s])), [states]);
   const labelById = useMemo(() => new Map(labels.map((l) => [l.id, l])), [labels]);
   const hasCol = hasColProp ?? defaultHasCol;
+  const columnLabels: Record<SpreadsheetColumnKey, string> = {
+    id: t('common.columnId', 'ID'),
+    title: t('common.title', 'Title'),
+    state: t('common.state', 'State'),
+    priority: t('common.priority', 'Priority'),
+    assignee: t('common.assignees', 'Assignees'),
+    labels: t('common.labels', 'Labels'),
+    due_date: t('common.due', 'Due'),
+    start_date: t('common.start', 'Start'),
+    cycle: t('common.cycle', 'Cycle'),
+    module: t('common.module', 'Module'),
+    sub_work_count: t('workItem.spreadsheet.subs', 'Subs'),
+  };
   const [openCell, setOpenCell] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<SpreadsheetColumnKey[]>(DEFAULT_COLUMN_ORDER);
   const [dragColumn, setDragColumn] = useState<SpreadsheetColumnKey | null>(null);
@@ -245,7 +260,7 @@ export function IssueLayoutSpreadsheet({
       case 'due_date':
         return onUpdateIssue ? (
           <DatePickerTrigger
-            label="Due date"
+            label={t('common.dueDate', 'Due date')}
             icon={<Calendar />}
             value={issue.target_date ?? ''}
             placeholder="—"
@@ -262,7 +277,7 @@ export function IssueLayoutSpreadsheet({
       case 'start_date':
         return onUpdateIssue ? (
           <DatePickerTrigger
-            label="Start date"
+            label={t('common.startDate', 'Start date')}
             icon={<Calendar />}
             value={issue.start_date ?? ''}
             placeholder="—"
@@ -335,7 +350,7 @@ export function IssueLayoutSpreadsheet({
                 onDragEnd={() => setDragColumn(null)}
                 onResizeStart={startResize(column)}
               >
-                {COLUMN_META[column].label}
+                {columnLabels[column]}
               </Th>
             ))}
           </tr>
@@ -364,7 +379,7 @@ export function IssueLayoutSpreadsheet({
                     colSpan={columns.length}
                     className="px-3 py-5 text-center text-xs text-(--txt-tertiary)"
                   >
-                    No work items
+                    {t('common.noWorkItems', 'No work items')}
                   </td>
                 </tr>
               ) : null}

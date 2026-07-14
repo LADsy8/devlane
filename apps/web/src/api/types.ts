@@ -110,6 +110,8 @@ export interface ProjectApiResponse {
   archive_in?: number;
   /** Auto-close: months of inactivity after which active items are closed (0 = off). */
   close_in?: number;
+  /** Set when the project is archived; absent/null for active projects. */
+  archived_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -327,6 +329,99 @@ export interface NotificationPreferencesResponse {
   email_comment: boolean;
   email_mention: boolean;
   email_issue_completed: boolean;
+}
+
+/** Intake triage status codes (match the API's intake_issues.status). */
+export const IntakeStatus = {
+  Pending: -2,
+  Declined: -1,
+  Snoozed: 0,
+  Accepted: 1,
+  Duplicate: 2,
+} as const;
+
+/** An intake ("inbox") item: the triage row plus its work-item summary. */
+/** A user favorite: a favorited entity (cycle/module) or a folder grouping them. */
+export interface FavoriteApiResponse {
+  id: string;
+  name: string;
+  entity_type: string;
+  entity_identifier: string;
+  is_folder: boolean;
+  parent_id?: string | null;
+  sort_order: number;
+  workspace_id: string;
+  project_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** A bulk-import job (e.g. CSV) for a project. */
+export interface ImporterApiResponse {
+  id: string;
+  service: string;
+  status: 'queued' | 'processing' | 'completed' | 'completed_with_errors' | 'failed';
+  total_count: number;
+  processed_count: number;
+  error_count: number;
+  error_message?: string;
+  source_filename?: string;
+  project_id?: string;
+  workspace_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** An outbound workspace webhook. */
+export interface WebhookApiResponse {
+  id: string;
+  url: string;
+  secret_key?: string;
+  is_active: boolean;
+  project: boolean;
+  issue: boolean;
+  module: boolean;
+  cycle: boolean;
+  issue_comment: boolean;
+  version: string;
+  workspace_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** One webhook delivery attempt (request + response). */
+export interface WebhookLogApiResponse {
+  id: string;
+  webhook_id: string;
+  event_type: string;
+  request_method: string;
+  request_body?: string;
+  response_status: string;
+  response_body?: string;
+  retry_count: number;
+  created_at?: string;
+}
+
+export interface IntakeItemApiResponse {
+  id: string;
+  intake_id: string;
+  issue_id: string;
+  status: number;
+  snoozed_till?: string | null;
+  duplicate_to_id?: string | null;
+  source: string;
+  source_email?: string;
+  project_id: string;
+  workspace_id: string;
+  created_at: string;
+  updated_at: string;
+  issue: {
+    id: string;
+    name: string;
+    sequence_id: number;
+    priority: string;
+    created_at: string;
+  };
 }
 
 /** GET /api/users/me/activity/ */
