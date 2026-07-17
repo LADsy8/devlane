@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from 'react-router-dom';
 import {
   LineChart,
   Line,
@@ -11,12 +11,12 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-} from "recharts";
-import { workspaceService } from "../services/workspaceService";
-import { projectService } from "../services/projectService";
-import { API_BASE } from "../api/client";
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
-import type { WorkspaceApiResponse, ProjectApiResponse } from "../api/types";
+} from 'recharts';
+import { workspaceService } from '../services/workspaceService';
+import { projectService } from '../services/projectService';
+import { API_BASE } from '../api/client';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import type { WorkspaceApiResponse, ProjectApiResponse } from '../api/types';
 
 interface AnalyticsResponse {
   by_state: Record<string, number>;
@@ -41,20 +41,6 @@ async function downloadCsv(url: string, fallbackFilename: string) {
   setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
 }
 
-const IconSearch = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    aria-hidden
-  >
-    <circle cx="11" cy="11" r="8" />
-    <path d="m21 21-4.3-4.3" />
-  </svg>
-);
 const IconBriefcase = () => (
   <svg
     width="14"
@@ -129,7 +115,7 @@ export function AnalyticsWorkItemsPage() {
   const [exportingProjectId, setExportingProjectId] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  useDocumentTitle("Analytics");
+  useDocumentTitle('Analytics');
 
   useEffect(() => {
     if (!workspaceSlug) {
@@ -139,44 +125,45 @@ export function AnalyticsWorkItemsPage() {
     let cancelled = false;
     setLoading(true);
     workspaceService
-    .getBySlug(workspaceSlug)
-    .then((w) => {
-      if (cancelled) return;
-      setWorkspace(w);
+      .getBySlug(workspaceSlug)
+      .then((w) => {
+        if (cancelled) return;
+        setWorkspace(w);
 
-      projectService.list(workspaceSlug)
-        .then((projs) => {
-          if (!cancelled && projs) setProjects(projs);
-        })
-        .catch((err) => console.error("Erreur projets:", err));
+        projectService
+          .list(workspaceSlug)
+          .then((projs) => {
+            if (!cancelled && projs) setProjects(projs);
+          })
+          .catch((err) => console.error('Erreur projets:', err));
 
-      // Add the trailing slash back to the URL
-      fetch(`${API_BASE}/api/workspaces/${workspaceSlug}/analytics/`, { credentials: 'include' })
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error(`Code erreur serveur Go : ${res.status}`);
-          }
-          return res.json();
-        })
-        .then((analyticsData) => {
-          if (!cancelled && analyticsData) setAnalytics(analyticsData);
-        })
-        .catch((err) => {
-          console.error("Erreur API Analytics Go:", err);
-        });
-    })
-    .catch((err) => {
-      console.error("Erreur Workspace:", err);
-      if (!cancelled) setWorkspace(null);
-    })
-    .finally(() => {
-      if (!cancelled) setLoading(false);
-    });
+        // Add the trailing slash back to the URL
+        fetch(`${API_BASE}/api/workspaces/${workspaceSlug}/analytics/`, { credentials: 'include' })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`Code erreur serveur Go : ${res.status}`);
+            }
+            return res.json();
+          })
+          .then((analyticsData) => {
+            if (!cancelled && analyticsData) setAnalytics(analyticsData);
+          })
+          .catch((err) => {
+            console.error('Erreur API Analytics Go:', err);
+          });
+      })
+      .catch((err) => {
+        console.error('Erreur Workspace:', err);
+        if (!cancelled) setWorkspace(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-  return () => {
-    cancelled = true;
-  };
-}, [workspaceSlug]);
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceSlug]);
 
   const exportWorkspaceCsv = async () => {
     if (!workspaceSlug || exportingWorkspace) return;
@@ -187,7 +174,7 @@ export function AnalyticsWorkItemsPage() {
         .toISOString()
         .slice(0, 10)}.csv`;
       await downloadCsv(`${API_BASE}/api/workspaces/${workspaceSlug}/analytics/export/`, fallback);
-    } catch (err) {
+    } catch {
       setExportError(t('analytics.exportFailed', 'Export failed. Please try again.'));
     } finally {
       setExportingWorkspace(false);
@@ -205,9 +192,9 @@ export function AnalyticsWorkItemsPage() {
         .slice(0, 10)}.csv`;
       await downloadCsv(
         `${API_BASE}/api/workspaces/${workspaceSlug}/projects/${projectId}/analytics/export`,
-        fallback
+        fallback,
       );
-    } catch (err) {
+    } catch {
       setExportError(t('analytics.exportFailed', 'Export failed. Please try again.'));
     } finally {
       setExportingProjectId(null);
@@ -232,28 +219,33 @@ export function AnalyticsWorkItemsPage() {
 
   const baseUrl = `/${workspace.slug}/analytics`;
 
-  const backlogCount = analytics?.by_state["Backlog"] ?? 0;
-  const startedCount = analytics?.by_state["In Progress"] ?? 0;
-  const unstartedCount = analytics?.by_state["Todo"] ?? 0;
-  const completedCount = analytics?.by_state["Done"] ?? 0;
+  const backlogCount = analytics?.by_state['Backlog'] ?? 0;
+  const startedCount = analytics?.by_state['In Progress'] ?? 0;
+  const unstartedCount = analytics?.by_state['Todo'] ?? 0;
+  const completedCount = analytics?.by_state['Done'] ?? 0;
   const totalIssues = backlogCount + startedCount + unstartedCount + completedCount;
 
   const priorityRows = Object.entries(analytics?.by_priority ?? {}).map(([priority, count]) => ({
-  priority: priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : "None",
-  count,
-}));
+    priority: priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : 'None',
+    count,
+  }));
 
-  const createdResolvedData: any[] = [];
-
+  const createdResolvedData: Record<string, unknown>[] = [];
   return (
     <div className="space-y-6 pb-8">
       {/* Tabs */}
       <div className="flex gap-1 border-b border-(--border-subtle)">
-        <Link to={`${baseUrl}/overview`} className="border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-(--txt-secondary) no-underline hover:text-(--txt-primary)">
-          Overview
+        <Link
+          to={`${baseUrl}/overview`}
+          className="border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-(--txt-secondary) no-underline hover:text-(--txt-primary)"
+        >
+          {t('common.overview', 'Overview')}
         </Link>
-        <Link to={`${baseUrl}/work-items`} className="border-b-2 border-(--brand-default) px-4 py-2.5 text-sm font-medium text-(--txt-primary) no-underline">
-          Work items
+        <Link
+          to={`${baseUrl}/work-items`}
+          className="border-b-2 border-(--brand-default) px-4 py-2.5 text-sm font-medium text-(--txt-primary) no-underline"
+        >
+          {t('common.workItems', 'Work items')}
         </Link>
       </div>
 
@@ -264,7 +256,7 @@ export function AnalyticsWorkItemsPage() {
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-4 py-3">
-          <p className="text-xs font-medium text-(--txt-tertiary)">Total Work items</p>
+          <p className="text-xs font-medium text-(--txt-tertiary)">{t('analytics.totalWorkItems', 'Total Work items')}</p>
           <p className="mt-1 text-2xl font-semibold text-(--txt-primary)">{totalIssues}</p>
         </div>
         <div className="rounded-md border border-(--border-subtle) bg-(--bg-surface-1) px-4 py-3">
@@ -312,29 +304,29 @@ export function AnalyticsWorkItemsPage() {
                 />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: "var(--txt-secondary)", fontSize: 11 }}
-                  tickLine={{ stroke: "var(--border-subtle)" }}
-                  axisLine={{ stroke: "var(--border-subtle)" }}
+                  tick={{ fill: 'var(--txt-secondary)', fontSize: 11 }}
+                  tickLine={{ stroke: 'var(--border-subtle)' }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: "DATE",
-                    position: "insideBottom",
+                    value: 'DATE',
+                    position: 'insideBottom',
                     offset: -4,
-                    fill: "var(--txt-tertiary)",
+                    fill: 'var(--txt-tertiary)',
                     fontSize: 11,
                   }}
                 />
                 <YAxis
-                  tick={{ fill: "var(--txt-secondary)", fontSize: 11 }}
-                  tickLine={{ stroke: "var(--border-subtle)" }}
-                  axisLine={{ stroke: "var(--border-subtle)" }}
+                  tick={{ fill: 'var(--txt-secondary)', fontSize: 11 }}
+                  tickLine={{ stroke: 'var(--border-subtle)' }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: "NO. OF WORK ITEMS",
+                    value: 'NO. OF WORK ITEMS',
                     angle: -90,
-                    position: "insideLeft",
-                    fill: "var(--txt-tertiary)",
+                    position: 'insideLeft',
+                    fill: 'var(--txt-tertiary)',
                     fontSize: 11,
                   }}
-                  domain={[0, "auto"]}
+                  domain={[0, 'auto']}
                   allowDecimals={false}
                 />
                 <Legend
@@ -354,7 +346,7 @@ export function AnalyticsWorkItemsPage() {
                   name={t('analytics.resolved', 'Resolved')}
                   stroke="var(--txt-success-primary, #22c55e)"
                   strokeWidth={2}
-                  dot={{ fill: "var(--txt-success-primary, #22c55e)", r: 4 }}
+                  dot={{ fill: 'var(--txt-success-primary, #22c55e)', r: 4 }}
                   connectNulls
                 />
                 <Line
@@ -363,7 +355,7 @@ export function AnalyticsWorkItemsPage() {
                   name={t('analytics.created', 'Created')}
                   stroke="var(--brand-default)"
                   strokeWidth={2}
-                  dot={{ fill: "var(--brand-default)", r: 4 }}
+                  dot={{ fill: 'var(--brand-default)', r: 4 }}
                   connectNulls
                 />
               </LineChart>
@@ -412,29 +404,29 @@ export function AnalyticsWorkItemsPage() {
                 />
                 <XAxis
                   dataKey="priority"
-                  tick={{ fill: "var(--txt-secondary)", fontSize: 11 }}
-                  tickLine={{ stroke: "var(--border-subtle)" }}
-                  axisLine={{ stroke: "var(--border-subtle)" }}
+                  tick={{ fill: 'var(--txt-secondary)', fontSize: 11 }}
+                  tickLine={{ stroke: 'var(--border-subtle)' }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: "PRIORITY",
-                    position: "insideBottom",
+                    value: 'PRIORITY',
+                    position: 'insideBottom',
                     offset: -4,
-                    fill: "var(--txt-tertiary)",
+                    fill: 'var(--txt-tertiary)',
                     fontSize: 11,
                   }}
                 />
                 <YAxis
-                  tick={{ fill: "var(--txt-secondary)", fontSize: 11 }}
-                  tickLine={{ stroke: "var(--border-subtle)" }}
-                  axisLine={{ stroke: "var(--border-subtle)" }}
+                  tick={{ fill: 'var(--txt-secondary)', fontSize: 11 }}
+                  tickLine={{ stroke: 'var(--border-subtle)' }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: "NO. OF WORK ITEM",
+                    value: 'NO. OF WORK ITEM',
                     angle: -90,
-                    position: "insideLeft",
-                    fill: "var(--txt-tertiary)",
+                    position: 'insideLeft',
+                    fill: 'var(--txt-tertiary)',
                     fontSize: 11,
                   }}
-                  domain={[0, "auto"]}
+                  domain={[0, 'auto']}
                   allowDecimals={false}
                 />
                 <Bar dataKey="count" fill="var(--neutral-400, #9389a0)" radius={[2, 2, 0, 0]} />
@@ -452,7 +444,9 @@ export function AnalyticsWorkItemsPage() {
       <section>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-(--txt-primary)">{priorityRows.length} Priorities</h3>
+            <h3 className="text-base font-semibold text-(--txt-primary)">
+              {t('analytics.prioritiesCount', '{{count}} Priorities', { count: priorityRows.length })}
+            </h3>
           </div>
           <button
             type="button"
@@ -460,9 +454,9 @@ export function AnalyticsWorkItemsPage() {
             onClick={exportWorkspaceCsv}
             className="flex items-center gap-1.5 rounded-md border border-(--border-subtle) bg-(--bg-layer-2) px-2.5 py-1.5 text-[13px] font-medium text-(--txt-secondary) hover:bg-(--bg-layer-2-hover) disabled:opacity-60"
           >
-            <IconDownload /> 
-            {exportingWorkspace 
-              ? t('analytics.exporting', 'Exporting…') 
+            <IconDownload />
+            {exportingWorkspace
+              ? t('analytics.exporting', 'Exporting…')
               : t('analytics.exportAsCsv', 'Export as CSV')}
           </button>
         </div>
@@ -491,18 +485,20 @@ export function AnalyticsWorkItemsPage() {
       </section>
 
       {/* Projects table */}
-     <section>
+      <section>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-(--txt-primary)">{projects.length} Projects</h3>
+            <h3 className="text-base font-semibold text-(--txt-primary)">
+              {t('analytics.projectsCount', '{{count}} Projects', { count: projects.length })}
+            </h3>
           </div>
         </div>
         <div className="overflow-x-auto rounded-md border border-(--border-subtle) bg-(--bg-surface-1)">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-(--border-subtle)">
-                <th className="py-3 px-4 font-medium text-(--txt-secondary)">Project</th>
-                <th className="py-3 px-4 font-medium text-(--txt-secondary)">Actions</th>
+                <th className="py-3 px-4 font-medium text-(--txt-secondary)">{t('common.project', 'Project')}</th>
+                <th className="py-3 px-4 font-medium text-(--txt-secondary)">{t('common.actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -510,7 +506,9 @@ export function AnalyticsWorkItemsPage() {
                 <tr key={project.id} className="border-b border-(--border-subtle) last:border-0">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <span className="flex size-6 items-center justify-center rounded bg-(--bg-layer-2) text-[10px] font-medium text-(--txt-icon-secondary)"><IconBriefcase /></span>
+                      <span className="flex size-6 items-center justify-center rounded bg-(--bg-layer-2) text-[10px] font-medium text-(--txt-icon-secondary)">
+                        <IconBriefcase />
+                      </span>
                       <span className="text-(--txt-primary)">{project.name}</span>
                     </div>
                   </td>
@@ -521,9 +519,9 @@ export function AnalyticsWorkItemsPage() {
                       onClick={() => exportProjectCsv(project.id)}
                       className="flex items-center gap-1 rounded border border-(--border-subtle) bg-(--bg-layer-2) px-2 py-1 text-xs text-(--txt-secondary) hover:bg-(--bg-layer-2-hover) disabled:opacity-60"
                     >
-                      <IconDownload /> 
-                      {exportingProjectId === project.id 
-                        ? t('analytics.exporting', 'Exporting…') 
+                      <IconDownload />
+                      {exportingProjectId === project.id
+                        ? t('analytics.exporting', 'Exporting…')
                         : 'Export Project CSV'}
                     </button>
                   </td>

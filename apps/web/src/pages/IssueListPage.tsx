@@ -182,21 +182,25 @@ export function IssueListPage() {
     let cancelled = false;
     setLoading(true);
 
-    const safeFetch = (promise: Promise<any>, fallback: any): Promise<any> => {
-      return Promise.resolve(promise)
-        .then((val) => val ?? fallback)
-        .catch((err) => {
-          console.warn("Secondary request ignored (Prevents crashes)", err.message || err);
-          return fallback;
-        });
-    };
+    const safeFetch = <T,>(promise: Promise<T>, fallback: T): Promise<T> => {
+  return Promise.resolve(promise)
+    .then((val) => val ?? fallback)
+    .catch((err: unknown) => {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.warn('Secondary request ignored (Prevents crashes)', errorMessage);
+      return fallback;
+    });
+};
 
     Promise.all([
       workspaceService.getBySlug(workspaceSlug),
       projectService.get(workspaceSlug, projectId),
 
       safeFetch(projectService.list(workspaceSlug), [] as ProjectApiResponse[]),
-      safeFetch(issueService.list(workspaceSlug, projectId, { limit: 100 }), [] as IssueApiResponse[]),
+      safeFetch(
+        issueService.list(workspaceSlug, projectId, { limit: 100 }),
+        [] as IssueApiResponse[],
+      ),
       safeFetch(stateService.list(workspaceSlug, projectId), [] as StateApiResponse[]),
       safeFetch(labelService.list(workspaceSlug, projectId), [] as LabelApiResponse[]),
       safeFetch(cycleService.list(workspaceSlug, projectId), [] as CycleApiResponse[]),
@@ -216,7 +220,7 @@ export function IssueListPage() {
         setMembers(mem);
       })
       .catch((err) => {
-        console.error("Critical error when loading Project or Workspace : ", err);
+        console.error('Critical error when loading Project or Workspace : ', err);
         if (!cancelled) {
           setWorkspace(null);
           setProject(null);
@@ -586,8 +590,6 @@ export function IssueListPage() {
     );
   }
   if (!workspace || !project) {
-    console.log(project)
-    console.log(workspace)
     return (
       <div className="text-(--txt-secondary)">
         {t('common.projectNotFound', 'Project not found.')}
