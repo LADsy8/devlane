@@ -433,8 +433,8 @@ func New(cfg Config) (*gin.Engine, *service.ImporterService) {
 		api.GET("/workspaces/:slug/analytics/", analyticsHandler.GetWorkspaceAnalytics)
 		api.GET("/workspaces/:slug/analytics/export/", analyticsHandler.ExportWorkspaceCSV)
 
-		api.GET("/workspaces/:slug/projects/:projectId/analytics", analyticsHandler.GetProjectAnalytics)
-		api.GET("/workspaces/:slug/projects/:projectId/analytics/export", analyticsHandler.ExportProjectCSV)
+		api.GET("/workspaces/:slug/projects/:projectId/analytics/", analyticsHandler.GetProjectAnalytics)
+		api.GET("/workspaces/:slug/projects/:projectId/analytics/export/", analyticsHandler.ExportProjectCSV)
 
 		api.GET("/workspaces/:slug/projects/:projectId/cycles/", cycleHandler.List)
 		api.GET("/workspaces/:slug/projects/:projectId/cycles-progress/", cycleHandler.CyclesProgress)

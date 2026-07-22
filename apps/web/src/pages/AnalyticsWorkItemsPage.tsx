@@ -18,9 +18,33 @@ import { API_BASE } from '../api/client';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import type { WorkspaceApiResponse, ProjectApiResponse } from '../api/types';
 
+interface TrendPoint {
+  date: string;
+  created: number;
+  resolved: number;
+}
+
 interface AnalyticsResponse {
   by_state: Record<string, number>;
   by_priority: Record<string, number>;
+  trend?: TrendPoint[];
+  partial_error?: boolean;
+  warnings?: string[];
+}
+
+const STATE_GROUP_SYNONYMS: Record<'backlog' | 'unstarted' | 'started' | 'completed', string[]> = {
+  backlog: ['backlog'],
+  unstarted: ['todo', 'to do', 'unstarted'],
+  started: ['in progress', 'started'],
+  completed: ['done', 'completed'],
+};
+
+function sumStateGroup(byState: Record<string, number>, synonyms: string[]): number {
+  const wanted = new Set(synonyms.map((s) => s.toLowerCase()));
+  return Object.entries(byState).reduce(
+    (sum, [name, count]) => (wanted.has(name.toLowerCase()) ? sum + count : sum),
+    0,
+  );
 }
 
 // Safely downloads the CSV via fetch using credentials (cookies) and correct absolute API URL
@@ -108,6 +132,7 @@ export function AnalyticsWorkItemsPage() {
   const [projects, setProjects] = useState<ProjectApiResponse[]>([]);
 
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // States to track downloads
@@ -124,46 +149,55 @@ export function AnalyticsWorkItemsPage() {
     }
     let cancelled = false;
     setLoading(true);
-    workspaceService
-      .getBySlug(workspaceSlug)
-      .then((w) => {
-        if (cancelled) return;
-        setWorkspace(w);
+    setAnalyticsError(null);
 
-        projectService
-          .list(workspaceSlug)
-          .then((projs) => {
-            if (!cancelled && projs) setProjects(projs);
-          })
-          .catch((err) => console.error('Erreur projets:', err));
-
-        // Add the trailing slash back to the URL
-        fetch(`${API_BASE}/api/workspaces/${workspaceSlug}/analytics/`, { credentials: 'include' })
-          .then((res) => {
-            if (!res.ok) {
-              throw new Error(`Code erreur serveur Go : ${res.status}`);
-            }
-            return res.json();
-          })
-          .then((analyticsData) => {
-            if (!cancelled && analyticsData) setAnalytics(analyticsData);
-          })
-          .catch((err) => {
-            console.error('Erreur API Analytics Go:', err);
-          });
-      })
-      .catch((err) => {
+    (async () => {
+      let w: WorkspaceApiResponse | null = null;
+      try {
+        w = await workspaceService.getBySlug(workspaceSlug);
+      } catch (err) {
         console.error('Erreur Workspace:', err);
         if (!cancelled) setWorkspace(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+        return;
+      }
+      if (cancelled) return;
+      setWorkspace(w);
+
+      const [projectsResult, analyticsResult] = await Promise.allSettled([
+        projectService.list(workspaceSlug),
+        fetch(`${API_BASE}/api/workspaces/${workspaceSlug}/analytics/`, {
+          credentials: 'include',
+        }).then((res) => {
+          if (!res.ok) {
+            throw new Error(`Code erreur serveur Go : ${res.status}`);
+          }
+          return res.json() as Promise<AnalyticsResponse>;
+        }),
+      ]);
+      if (cancelled) return;
+
+      if (projectsResult.status === 'fulfilled') {
+        if (projectsResult.value) setProjects(projectsResult.value);
+      } else {
+        console.error('Erreur projets:', projectsResult.reason);
+      }
+
+      if (analyticsResult.status === 'fulfilled') {
+        setAnalytics(analyticsResult.value);
+      } else {
+        console.error('Erreur API Analytics Go:', analyticsResult.reason);
+        setAnalyticsError(
+          t('analytics.loadFailed', 'Could not load analytics. Please try again.'),
+        );
+      }
+    })().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [workspaceSlug]);
+  }, [workspaceSlug, t]);
 
   const exportWorkspaceCsv = async () => {
     if (!workspaceSlug || exportingWorkspace) return;
@@ -191,7 +225,7 @@ export function AnalyticsWorkItemsPage() {
         .toISOString()
         .slice(0, 10)}.csv`;
       await downloadCsv(
-        `${API_BASE}/api/workspaces/${workspaceSlug}/projects/${projectId}/analytics/export`,
+        `${API_BASE}/api/workspaces/${workspaceSlug}/projects/${projectId}/analytics/export/`,
         fallback,
       );
     } catch {
@@ -219,18 +253,19 @@ export function AnalyticsWorkItemsPage() {
 
   const baseUrl = `/${workspace.slug}/analytics`;
 
-  const backlogCount = analytics?.by_state['Backlog'] ?? 0;
-  const startedCount = analytics?.by_state['In Progress'] ?? 0;
-  const unstartedCount = analytics?.by_state['Todo'] ?? 0;
-  const completedCount = analytics?.by_state['Done'] ?? 0;
-  const totalIssues = backlogCount + startedCount + unstartedCount + completedCount;
+  const byState = analytics?.by_state ?? {};
+  const backlogCount = sumStateGroup(byState, STATE_GROUP_SYNONYMS.backlog);
+  const startedCount = sumStateGroup(byState, STATE_GROUP_SYNONYMS.started);
+  const unstartedCount = sumStateGroup(byState, STATE_GROUP_SYNONYMS.unstarted);
+  const completedCount = sumStateGroup(byState, STATE_GROUP_SYNONYMS.completed);
+  const totalIssues = Object.values(byState).reduce((sum, count) => sum + count, 0);
 
   const priorityRows = Object.entries(analytics?.by_priority ?? {}).map(([priority, count]) => ({
     priority: priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : 'None',
     count,
   }));
 
-  const createdResolvedData: Record<string, unknown>[] = [];
+  const createdResolvedData: TrendPoint[] = analytics?.trend ?? [];
   return (
     <div className="space-y-6 pb-8">
       {/* Tabs */}
@@ -252,6 +287,10 @@ export function AnalyticsWorkItemsPage() {
       <h2 className="text-lg font-semibold text-(--txt-primary)">
         {t('analytics.workItems', 'Work items')}
       </h2>
+
+      {analyticsError && (
+        <p className="text-sm text-(--txt-danger-primary) font-medium">{analyticsError}</p>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
@@ -308,7 +347,7 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: 'var(--border-subtle)' }}
                   axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: 'DATE',
+                    value: t('analytics.axisDate', 'DATE'),
                     position: 'insideBottom',
                     offset: -4,
                     fill: 'var(--txt-tertiary)',
@@ -320,7 +359,7 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: 'var(--border-subtle)' }}
                   axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: 'NO. OF WORK ITEMS',
+                    value: t('analytics.axisWorkItemsCount', 'NO. OF WORK ITEMS'),
                     angle: -90,
                     position: 'insideLeft',
                     fill: 'var(--txt-tertiary)',
@@ -408,7 +447,7 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: 'var(--border-subtle)' }}
                   axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: 'PRIORITY',
+                    value: t('analytics.axisPriority', 'PRIORITY'),
                     position: 'insideBottom',
                     offset: -4,
                     fill: 'var(--txt-tertiary)',
@@ -420,7 +459,7 @@ export function AnalyticsWorkItemsPage() {
                   tickLine={{ stroke: 'var(--border-subtle)' }}
                   axisLine={{ stroke: 'var(--border-subtle)' }}
                   label={{
-                    value: 'NO. OF WORK ITEM',
+                    value: t('analytics.axisWorkItemCount', 'NO. OF WORK ITEM'),
                     angle: -90,
                     position: 'insideLeft',
                     fill: 'var(--txt-tertiary)',
@@ -522,7 +561,7 @@ export function AnalyticsWorkItemsPage() {
                       <IconDownload />
                       {exportingProjectId === project.id
                         ? t('analytics.exporting', 'Exporting…')
-                        : 'Export Project CSV'}
+                        : t('analytics.exportProjectCsv', 'Export Project CSV')}
                     </button>
                   </td>
                 </tr>
